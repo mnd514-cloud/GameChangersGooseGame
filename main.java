@@ -2,6 +2,6 @@ import System
 
 public class main {
     public static void main(String[] args) {
-        System.out.println("this is the new repo for the fucking win boys.")
+        System.out.println("this is the new repo")
     }
 }

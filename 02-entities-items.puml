@@ -1,0 +1,91 @@
+@startuml 02-entities-items
+title Goose Patrol - 2. Entities, inventory and items
+
+' ---- display settings: leave as they are ----
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+hide empty members
+
+' ---- entities (things on the map) ----
+abstract class Entity {
+  # position : Vector2
+  # bounds : Rectangle
+  # speed : float
+  + update(delta)
+}
+
+class Goose {
+  - hunger : float
+  + chase(player)
+  + feed(item)
+  + disperse()
+}
+
+class Player {
+  - facing : Direction
+  + move(dir, delta)
+  + useItem(slot)
+  + pickUp(pickup)
+}
+
+class PickupItem {
+  - collected : boolean
+  + collect() : Item
+}
+
+enum GooseState {
+  CHASING
+  DISTRACTED
+  FED
+  DISPERSED
+}
+
+' ---- inventory and items ----
+class Inventory {
+  - capacity : int
+  + add(item)
+  + remove(item)
+  + isFull() : boolean
+}
+
+abstract class Item {
+  # name : String
+  # usesLeft : int
+  + {abstract} use(world, player)
+}
+
+class FeedItem {
+  + use(w, p)
+}
+
+class DistractItem {
+  + use(w, p)
+}
+
+class OccupyItem {
+  + use(w, p)
+}
+
+' ---- relationships ----
+' <|-- = inheritance, *-- = composition, o-- = aggregation, --> = association
+Entity <|-- Goose
+Entity <|-- Player
+Entity <|-- PickupItem
+
+Goose --> "1" GooseState : state
+Player *-- "1" Inventory : inventory
+Inventory o--> "0..*" Item
+PickupItem --> "1" Item : item
+
+Item <|-- FeedItem
+Item <|-- DistractItem
+Item <|-- OccupyItem
+
+' ---- optional: dependencies (uncomment the lines below to show them) ----
+' class GameWorld
+' Item ..> GameWorld : affects
+' Item ..> Player : used by
+' Goose ..> Player : chases
+' Goose ..> Item : fed with
+
+@enduml

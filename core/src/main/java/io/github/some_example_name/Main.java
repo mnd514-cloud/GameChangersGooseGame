@@ -106,12 +106,10 @@ public class Main extends ApplicationAdapter {
         shapeRenderer.setColor(1, 1, 1, 1);
         shapeRenderer.circle(playerX, playerY, playerRadius);
 
-        shapeRenderer.setColor(1, 0, 0, 1);
+        shapeRenderer.setColor(0, 0, 1, 1);
         shapeRenderer.circle(enemyX, enemyY, enemyRadius);
 
         shapeRenderer.end();
-
-        enemyX += enemySpeed * enemyDirection * delta;
 
     }
 

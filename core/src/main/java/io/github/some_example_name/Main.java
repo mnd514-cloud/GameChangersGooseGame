@@ -91,6 +91,17 @@ public class Main extends ApplicationAdapter {
             } else if (enemyX - enemyRadius <= 0) {
                 enemyDirection = 1;
 
+        //Check collison between player and enemy
+        float dx = playerX-enemyX;
+        float dy = playerY - enemyY;
+
+        if (dx * dx * dy * dy <=
+            (playerRadius + enemyRadius)*
+                (playerRadius + enemyRadius)) {
+            collided = true;
+
+        }
+
         }
 
         // Keep player inside window

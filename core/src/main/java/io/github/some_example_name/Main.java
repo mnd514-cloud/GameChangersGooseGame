@@ -11,6 +11,7 @@ public class Main extends ApplicationAdapter {
 
     private ShapeRenderer shapeRenderer;
     private Matrix4 cameraMatrix;
+    private boolean collided = false;
 
     // Player position and movement
     private float playerX;
@@ -18,12 +19,19 @@ public class Main extends ApplicationAdapter {
     private float playerSpeed = 300f;
     private float playerRadius = 10f;
 
-    // Enemy position and movement
-    private float enemyX = 100f;
-    private float enemyY = 400f;
-    private float enemySpeed = 200f;
-    private float enemyRadius = 15f;
-    private int enemyDirection = 1;
+    // Horizontal Goose
+    private float horizontalGooseX = 100f;
+    private float horizontalGooseY = 400f;
+    private float horizontalGooseSpeed = 200f;
+    private float horizontalGooseRadius = 15f;
+    private int horizontalGooseDirection = 1;
+
+    // Vertical Goose
+    private float verticalGooseX = 400f;
+    private float verticalGooseY = 100f;
+    private float verticalGooseSpeed = 150f;
+    private float verticalGooseRadius = 15f;
+    private int verticalGooseDirection = 1;
 
     @Override
     public void create() {
@@ -68,60 +76,108 @@ public class Main extends ApplicationAdapter {
         float delta = Gdx.graphics.getDeltaTime();
         float movement = playerSpeed * delta;
 
-        // WASD movement
-        if (Gdx.input.isKeyPressed(Input.Keys.W)) {
-            playerY += movement;
+        // Only move objects if there has been no collision
+        if (!collided) {
+
+            // WASD movement
+            if (Gdx.input.isKeyPressed(Input.Keys.W)) {
+                playerY += movement;
+            }
+            if (Gdx.input.isKeyPressed(Input.Keys.S)) {
+                playerY -= movement;
+            }
+            if (Gdx.input.isKeyPressed(Input.Keys.A)) {
+                playerX -= movement;
+            }
+            if (Gdx.input.isKeyPressed(Input.Keys.D)) {
+                playerX += movement;
+            }
+
+            // Move Horizontal Goose
+            horizontalGooseX += horizontalGooseSpeed
+                * horizontalGooseDirection * delta;
+
+            // Reverse Horizontal Goose at screen edges
+            if (horizontalGooseX + horizontalGooseRadius >= Gdx.graphics.getWidth()) {
+                horizontalGooseDirection = -1;
+            }
+            if (horizontalGooseX - horizontalGooseRadius <= 0) {
+                horizontalGooseDirection = 1;
+            }
+
+            // Move Vertical Goose
+            verticalGooseY += verticalGooseSpeed
+                * verticalGooseDirection * delta;
+
+            // Reverse Vertical Goose at screen edges
+            if (verticalGooseY + verticalGooseRadius >= Gdx.graphics.getHeight()) {
+                verticalGooseDirection = -1;
+            }
+            if (verticalGooseY - verticalGooseRadius <= 0) {
+                verticalGooseDirection = 1;
+            }
+
+            // Check collision with Horizontal Goose
+            float dx = playerX - horizontalGooseX;
+            float dy = playerY - horizontalGooseY;
+            float combinedRadius = playerRadius + horizontalGooseRadius;
+
+            if (dx * dx + dy * dy <= combinedRadius * combinedRadius) {
+                collided = true;
+                Gdx.app.log("Game", "Hit Horizontal Goose");
+            }
+
+            // Check collision with Vertical Goose
+            dx = playerX - verticalGooseX;
+            dy = playerY - verticalGooseY;
+            combinedRadius = playerRadius + verticalGooseRadius;
+
+            if (dx * dx + dy * dy <= combinedRadius * combinedRadius) {
+                collided = true;
+                Gdx.app.log("Game", "Hit Vertical Goose");
+            }
+
+            // Keep player inside window
+            playerX = Math.max(
+                playerRadius,
+                Math.min(playerX, Gdx.graphics.getWidth() - playerRadius)
+            );
+
+            playerY = Math.max(
+                playerRadius,
+                Math.min(playerY, Gdx.graphics.getHeight() - playerRadius)
+            );
         }
-        if (Gdx.input.isKeyPressed(Input.Keys.S)) {
-            playerY -= movement;
-        }
-        if (Gdx.input.isKeyPressed(Input.Keys.A)) {
-            playerX -= movement;
-        }
-        if (Gdx.input.isKeyPressed(Input.Keys.D)) {
-            playerX += movement;
-        }
 
-        // Move enemy horizontally
-        enemyX += enemySpeed * enemyDirection * delta;
-
-        //Reverse direction at edge of screen
-            if (enemyX + enemyRadius >= Gdx.graphics.getWidth()) {
-                enemyDirection = -1;
-            } else if (enemyX - enemyRadius <= 0) {
-                enemyDirection = 1;
-
-        //Check collison between player and enemy
-        float dx = playerX-enemyX;
-        float dy = playerY - enemyY;
-
-        if (dx * dx * dy * dy <=
-            (playerRadius + enemyRadius)*
-                (playerRadius + enemyRadius)) {
-            collided = true;
-
-        }
-
-        }
-
-        // Keep player inside window
-        playerX = Math.max(playerRadius,
-            Math.min(playerX, Gdx.graphics.getWidth() - playerRadius));
-
-        playerY = Math.max(playerRadius,
-            Math.min(playerY, Gdx.graphics.getHeight() - playerRadius));
-
-        //Draw  player
+        // Draw player and geese
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
 
-        shapeRenderer.setColor(1, 1, 1, 1);
+        // Player turns blue after collision
+        if (collided) {
+            shapeRenderer.setColor(0, 0, 1, 1);
+        } else {
+            shapeRenderer.setColor(1, 1, 1, 1);
+        }
+
         shapeRenderer.circle(playerX, playerY, playerRadius);
 
-        shapeRenderer.setColor(0, 0, 1, 1);
-        shapeRenderer.circle(enemyX, enemyY, enemyRadius);
+        // Draw Horizontal Goose in red
+        shapeRenderer.setColor(1, 0, 0, 1);
+        shapeRenderer.circle(
+            horizontalGooseX,
+            horizontalGooseY,
+            horizontalGooseRadius
+        );
+
+        // Draw Vertical Goose in orange
+        shapeRenderer.setColor(1, 0.5f, 0, 1);
+        shapeRenderer.circle(
+            verticalGooseX,
+            verticalGooseY,
+            verticalGooseRadius
+        );
 
         shapeRenderer.end();
-
     }
 
     @Override

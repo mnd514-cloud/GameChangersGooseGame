@@ -226,7 +226,7 @@ public class Main extends ApplicationAdapter {
             );
         }
 
-        // Draw player and geese
+        //Draw player and geese
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
 
         // Player turns blue after collision

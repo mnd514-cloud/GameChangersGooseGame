@@ -194,6 +194,26 @@ public class Main extends ApplicationAdapter {
                 Gdx.app.log("Game", "Hit Vertical Goose");
             }
 
+            // Check collision with Diagonal Goose
+            dx = playerX - diagonalGooseX;
+            dy = playerY - diagonalGooseY;
+            combinedRadius = playerRadius + diagonalGooseRadius;
+
+            if (dx * dx + dy * dy <= combinedRadius * combinedRadius) {
+                collided = true;
+                Gdx.app.log("Game", "Hit Diagonal Goose");
+            }
+
+            // Check collision with Circle Goose
+            dx = playerX - circleGooseX;
+            dy = playerY - circleGooseY;
+            combinedRadius = playerRadius + circleGooseRadius;
+
+            if (dx * dx + dy * dy <= combinedRadius * combinedRadius) {
+                collided = true;
+                Gdx.app.log("Game", "Hit Circle Goose");
+            }
+
             // Keep player inside window
             playerX = Math.max(
                 playerRadius,

@@ -9,12 +9,17 @@ import com.badlogic.gdx.graphics.g2d.GlyphLayout;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.Matrix4;
+import com.badlogic.gdx.graphics.g2d.BitmapFont;
+import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 
 public class Main extends ApplicationAdapter {
 
     private ShapeRenderer shapeRenderer;
     private Matrix4 cameraMatrix;
     private boolean collided = false;
+    private float timeRemaining=300f;   //game timer
+    private BitmapFont font;
+    private SpriteBatch batch;
 
     // Pause state: the game starts paused until the player presses Start
     private GameState state = GameState.PAUSED;
@@ -67,6 +72,8 @@ public class Main extends ApplicationAdapter {
     public void create() {
         shapeRenderer = new ShapeRenderer();
         cameraMatrix = new Matrix4();
+        font = new BitmapFont();
+        batch = new SpriteBatch();
 
         batch = new SpriteBatch();
         font = new BitmapFont();
@@ -117,6 +124,10 @@ public class Main extends ApplicationAdapter {
 
         // Calculate movement based on time
         float delta = Gdx.graphics.getDeltaTime();
+        //countdown timer
+        if (!collided && timeRemaining > 0) {
+            timeRemaining -= delta;
+        }
         float movement = playerSpeed * delta;
 
         // SPACE starts the game from the start screen
@@ -350,6 +361,16 @@ public class Main extends ApplicationAdapter {
         if (state == GameState.RUNNING) {
             state = GameState.PAUSED;
         }
+        batch.begin();
+
+        int minutes = (int) timeRemaining / 60;
+        int seconds = (int) timeRemaining % 60;
+
+        String timerText = String.format("%02d:%02d", minutes,seconds);
+
+        font.draw(batch,timerText,20,Gdx.graphics.getHeight()-20);
+
+        batch.end();
     }
 
     @Override

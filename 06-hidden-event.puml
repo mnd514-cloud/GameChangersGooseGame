@@ -1,0 +1,27 @@
+@startuml 07-sequence-hidden-event
+title Goose Patrol - Invisible one-shot hidden event (A1)
+actor "Human player" as User
+participant InputHandler as Input
+participant GameWorld as World
+participant HiddenEvent as Event
+participant ProgressTracker as Progress
+participant HUD
+
+User -> Input : move into an invisible trigger zone
+Input -> World : movePlayer(direction, delta)
+World -> World : update(delta) [RUNNING]
+World -> Event : tryTrigger(Player, World)
+alt overlapping and not previously triggered
+  Event -> Event : triggered = true
+  Event -> Event : apply(World)
+  note over Event,World
+    Concrete event spawns geese or reveals an item.
+  end note
+  Event --> World : true
+  World -> Progress : onEventTriggered()
+  HUD -> World : read new event message and count
+else outside zone or already triggered
+  Event --> World : false
+end
+note over Event : No icon on map before triggering.
+@enduml

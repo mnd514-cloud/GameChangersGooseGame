@@ -1,91 +1,78 @@
 @startuml 02-entities-items
-title Goose Patrol - 2. Entities, inventory and items
-
-' ---- display settings: leave as they are ----
+title Goose Patrol - Entities and inventory
 skinparam classAttributeIconSize 0
 skinparam shadowing false
 hide empty members
 
-' ---- entities (things on the map) ----
 abstract class Entity {
-  # position : Vector2
-  # bounds : Rectangle
-  # speed : float
-  + update(delta)
+  #position : Vector2
+  #bounds : Rectangle
+  +update(delta : float)
 }
-
-class Goose {
-  - hunger : float
-  + chase(player)
-  + feed(item)
-  + disperse()
-}
-
 class Player {
-  - facing : Direction
-  + move(dir, delta)
-  + useItem(slot)
-  + pickUp(pickup)
+  -speed : float
+  -facing : Direction
+  +move(direction : Vector2, delta : float)
+  +pickUp(pickup : PickupItem)
 }
-
-class PickupItem {
-  - collected : boolean
-  + collect() : Item
+class Goose {
+  -speed : float
+  -state : GooseState
+  +chase(player : Player)
+  +followLure(lure : BreadLure)
+  +feed()
+  +disperse()
 }
-
 enum GooseState {
   CHASING
   DISTRACTED
   FED
   DISPERSED
 }
-
-' ---- inventory and items ----
+class PickupItem {
+  -collected : boolean
+  +collect() : Item
+}
+class BreadLure {
+  -remainingSeconds : float
+  +isActive() : boolean
+}
 class Inventory {
-  - capacity : int
-  + add(item)
-  + remove(item)
-  + isFull() : boolean
+  -capacity : int
+  +add(item : Item) : boolean
+  +use(slot : int, world : GameWorld, player : Player, target : Vector2) : boolean
+  +isFull() : boolean
 }
-
 abstract class Item {
-  # name : String
-  # usesLeft : int
-  + {abstract} use(world, player)
+  #name : String
+  #usesLeft : int
+  +use(world : GameWorld, player : Player, target : Vector2) : boolean
+}
+class BreadItem {
+  +use(world : GameWorld, player : Player, target : Vector2) : boolean
+}
+class SnackItem {
+  +use(world : GameWorld, player : Player, target : Vector2) : boolean
+}
+class GameWorld {
+  +spawnLure(target : Vector2)
+  +feedNearbyGeese(position : Vector2)
 }
 
-class FeedItem {
-  + use(w, p)
-}
-
-class DistractItem {
-  + use(w, p)
-}
-
-class OccupyItem {
-  + use(w, p)
-}
-
-' ---- relationships ----
-' <|-- = inheritance, *-- = composition, o-- = aggregation, --> = association
-Entity <|-- Goose
 Entity <|-- Player
+Entity <|-- Goose
 Entity <|-- PickupItem
+Entity <|-- BreadLure
+Player *-- "1" Inventory
+Inventory *-- "0..*" Item : owns
+PickupItem --> "0..1" Item : holds before collection
+Item <|-- BreadItem
+Item <|-- SnackItem
+Goose --> GooseState : state
+Goose ..> Player : chases
+Goose ..> BreadLure : follows
+BreadItem ..> GameWorld : spawns lure
+SnackItem ..> GameWorld : feeds nearby geese
 
-Goose --> "1" GooseState : state
-Player *-- "1" Inventory : inventory
-Inventory o--> "0..*" Item
-PickupItem --> "1" Item : item
-
-Item <|-- FeedItem
-Item <|-- DistractItem
-Item <|-- OccupyItem
-
-' ---- optional: dependencies (uncomment the lines below to show them) ----
-' class GameWorld
-' Item ..> GameWorld : affects
-' Item ..> Player : used by
-' Goose ..> Player : chases
-' Goose ..> Item : fed with
 
 @enduml

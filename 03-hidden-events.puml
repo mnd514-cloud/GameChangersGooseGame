@@ -1,36 +1,46 @@
 @startuml 03-hidden-events
-title Goose Patrol - 3. Hidden events
-
-' ---- display settings: leave as they are ----
+title Goose Patrol - Hidden events
 skinparam classAttributeIconSize 0
 skinparam shadowing false
 hide empty members
 
-' ---- classes ----
 abstract class HiddenEvent {
-  # triggerZone : Rectangle
-  # triggered : boolean
-  # message : String
-  + checkTrigger(player) : boolean
-  # {abstract} onTrigger(world)
+  #triggerZone : Rectangle
+  #triggered : boolean
+  #message : String
+  +tryTrigger(player : Player, world : GameWorld) : boolean
+  #apply(world : GameWorld)
 }
-
-class PositiveEvent {
-  # onTrigger(world)
+class SupplyCacheEvent {
+  #apply(world : GameWorld)
 }
-
-class NegativeEvent {
-  # onTrigger(world)
+class GooseRushEvent {
+  #apply(world : GameWorld)
 }
+class Player
+class GameWorld {
+  +spawnExtraGeese(count : int)
+  +addPickup(item : Item, position : Vector2)
+}
+class Item
 
-' ---- relationships ----
-HiddenEvent <|-- PositiveEvent
-HiddenEvent <|-- NegativeEvent
+HiddenEvent <|-- SupplyCacheEvent
+HiddenEvent <|-- GooseRushEvent
+HiddenEvent ..> Player : position check
+HiddenEvent ..> GameWorld : applies effect
+SupplyCacheEvent ..> Item : creates pickup
 
-' ---- optional: dependencies (uncomment the lines below to show them) ----
-' class Player
-' class GameWorld
-' HiddenEvent ..> Player : tests position
-' HiddenEvent ..> GameWorld : changes
-
+note right of HiddenEvent
+  Invisible to the player until triggered.
+  Triggered by entering a zone.
+  Single use; world increments the counter.
+end note
+note right of SupplyCacheEvent
+  Suggested positive A1 event:
+  reveals a new supply item.
+end note
+note right of GooseRushEvent
+  Suggested negative A1 event:
+  triggers a sudden goose wave.
+end note
 @enduml

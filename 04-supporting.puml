@@ -1,66 +1,65 @@
 @startuml 04-supporting
-title Goose Patrol - 4. Supporting classes (parts of GameWorld, plus presentation layer)
-
-' ---- display settings: leave as they are ----
+title Goose Patrol - Supporting game systems
 skinparam classAttributeIconSize 0
 skinparam shadowing false
 hide empty members
 
-' ---- classes ----
 class GameTimer {
-  - remaining : float
-  - running : boolean
-  + start()
-  + pause()
-  + resume()
-  + tick(delta)
-  + isExpired() : boolean
+  -remainingSeconds : float = 300
+  +reset()
+  +tick(delta : float)
+  +isExpired() : boolean
 }
-
-class ScoreTracker {
-  - itemsUsed : int
-  - eventsTriggered : int
-  - geeseDispersed : int
-  + onItemUsed()
-  + onEventTriggered()
-  + calculateScore() : int
+class ProgressTracker {
+  -itemsUsed : int
+  -eventsTriggered : int
+  -geeseDispersed : int
+  +onItemUsed()
+  +onEventTriggered()
+  +onGooseDispersed()
 }
-
 class GameMap {
-  - tiledMap : TiledMap
-  - bounds : Rectangle
-  - collisionLayer
-  + isWalkable(x, y) : boolean
-  + getSpawnPoint()
+  -bounds : Rectangle
+  -obstacles : List~Rectangle~
+  +isWalkable(position : Vector2) : boolean
+  +getSpawnPoint() : Vector2
 }
-
+class GooseSpawner {
+  -elapsedSeconds : float
+  +update(delta : float, world : GameWorld)
+  +calculateInterval(elapsed : float) : float
+}
 class HUD {
-  + draw(world)
+  +draw(world : GameWorld)
 }
-
 class InputHandler {
-  + poll(player)
-  + pausePressed() : boolean
+  +poll(world : GameWorld, delta : float)
+  +pausePressed() : boolean
 }
-
 enum GameState {
   PAUSED
   RUNNING
   WON
   LOST
 }
+class GameWorld {
+  -state : GameState
+  +start()
+  +togglePause()
+  +update(delta : float)
+  +movePlayer(direction : Vector2, delta : float)
+  +useItem(slot : int, target : Vector2) : boolean
+  +checkEndState()
+}
 
-' name-only boxes: shown here only so the arrows have something to point at
-class GameWorld
-class Player
-
-' ---- relationships ----
 GameWorld *-- "1" GameTimer
-GameWorld *-- "1" ScoreTracker
+GameWorld *-- "1" ProgressTracker
 GameWorld *-- "1" GameMap
-GameWorld --> "1" GameState : state
-
+GameWorld *-- "1" GooseSpawner
+GameWorld --> GameState : state
 HUD ..> GameWorld : reads
-InputHandler ..> Player : controls
+InputHandler ..> GameWorld : sends commands
+GooseSpawner ..> GameWorld : spawns geese
+
 
 @enduml

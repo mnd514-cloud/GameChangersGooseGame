@@ -1,0 +1,37 @@
+@startuml 05-sequence-start-pause
+title Goose Patrol - Start, frames and pause (A1)
+actor "Human player" as User
+participant GameScreen as Screen
+participant InputHandler as Input
+participant GameWorld as World
+participant GameTimer as Timer
+participant HUD
+
+note over World,Timer
+  Initial state = PAUSED; countdown = 300 seconds.
+end note
+User -> Screen : press Start
+Screen -> World : start()
+World -> World : state = RUNNING
+
+loop Each rendered frame
+  Screen -> Input : poll(World, delta)
+  opt WASD pressed
+    Input -> World : movePlayer(direction, delta)
+  end
+  Screen -> World : update(delta)
+  alt state == RUNNING
+    World -> Timer : tick(delta)
+    World -> World : update geese, events, pickups
+    World -> World : checkEndState()
+  else state == PAUSED
+    note over World,Timer : Gameplay and timer do not advance
+  end
+  Screen -> HUD : draw(World)
+end
+
+User -> Screen : press Esc
+Screen -> World : togglePause()
+World -> World : RUNNING <-> PAUSED
+note over Timer : Time stops while paused.
+@enduml

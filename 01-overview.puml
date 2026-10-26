@@ -1,5 +1,5 @@
-@startuml 01-overview
-title Goose Patrol - 1. Overview (screens, world, parts the world owns)
+@startuml 04-supporting
+title Goose Patrol - 4. Supporting classes (parts of GameWorld, plus presentation layer)
 
 ' ---- display settings: leave as they are ----
 skinparam classAttributeIconSize 0
@@ -7,68 +7,60 @@ skinparam shadowing false
 hide empty members
 
 ' ---- classes ----
-class GooseGame <<extends libGDX Game>> {
-  + create()
-  + setScreen(s)
-}
-
-interface Screen {
-  + show()
-  + render(delta)
+class GameTimer {
+  - remaining : float
+  - running : boolean
+  + start()
   + pause()
   + resume()
+  + tick(delta)
+  + isExpired() : boolean
 }
 
-class MenuScreen {
-  + onPlay()
+class ScoreTracker {
+  - itemsUsed : int
+  - eventsTriggered : int
+  - geeseDispersed : int
+  + onItemUsed()
+  + onEventTriggered()
+  + calculateScore() : int
 }
 
-class GameScreen {
-  + render(delta)
-  + togglePause()
+class GameMap {
+  - tiledMap : TiledMap
+  - bounds : Rectangle
+  - collisionLayer
+  + isWalkable(x, y) : boolean
+  + getSpawnPoint()
 }
 
-class EndScreen {
-  - outcome
-  - finalScore
+class HUD {
+  + draw(world)
 }
 
-class GameWorld {
-  - state : GameState
-  + update(delta)
-  + pause()
-  + resume()
-  + checkEndState()
+class InputHandler {
+  + poll(player)
+  + pausePressed() : boolean
 }
 
-' name-only boxes: members are on diagram 2, 3 or 4
-class HUD
-class InputHandler
+enum GameState {
+  PAUSED
+  RUNNING
+  WON
+  LOST
+}
+
+' name-only boxes: shown here only so the arrows have something to point at
+class GameWorld
 class Player
-class Goose
-class GameMap
-class PickupItem
-abstract class HiddenEvent
-class GameTimer
-class ScoreTracker
 
 ' ---- relationships ----
-' arrow = association, *-- = composition (owner has the *), <|.. = implements
-GooseGame --> "1..*" Screen : screens
-Screen <|.. MenuScreen
-Screen <|.. GameScreen
-Screen <|.. EndScreen
-
-GameScreen *-- "1" GameWorld : world
-GameScreen --> HUD : hud
-GameScreen --> InputHandler : input
-
-GameWorld *-- "1" Player
-GameWorld *-- "0..*" Goose
-GameWorld *-- "1" GameMap
-GameWorld *-- "0..*" PickupItem
-GameWorld *-- "5..*" HiddenEvent
 GameWorld *-- "1" GameTimer
 GameWorld *-- "1" ScoreTracker
+GameWorld *-- "1" GameMap
+GameWorld --> "1" GameState : state
+
+HUD ..> GameWorld : reads
+InputHandler ..> Player : controls
 
 @enduml

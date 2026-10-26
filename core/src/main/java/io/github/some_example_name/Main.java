@@ -17,21 +17,39 @@ public class Main extends ApplicationAdapter {
     private float playerX;
     private float playerY;
     private float playerSpeed = 300f;
-    private float playerRadius = 10f;
+    private float playerRadius = 15f;
 
     // Horizontal Goose
     private float horizontalGooseX = 100f;
     private float horizontalGooseY = 400f;
     private float horizontalGooseSpeed = 200f;
-    private float horizontalGooseRadius = 15f;
+    private float horizontalGooseRadius = 22f;
     private int horizontalGooseDirection = 1;
 
     // Vertical Goose
     private float verticalGooseX = 400f;
     private float verticalGooseY = 100f;
     private float verticalGooseSpeed = 150f;
-    private float verticalGooseRadius = 15f;
+    private float verticalGooseRadius = 22f;
     private int verticalGooseDirection = 1;
+
+    // Diagonal Goose
+    private float diagonalGooseX = 200f;
+    private float diagonalGooseY = 200f;
+    private float diagonalGooseSpeed = 180f;
+    private float diagonalGooseRadius = 22f;
+    private int diagonalGooseXDirection = 1;
+    private int diagonalGooseYDirection = 1;
+
+    // Circle Goose
+    private float circleGooseX;
+    private float circleGooseY;
+    private float circleGooseRadius = 22f;
+    private float circleCentreX;
+    private float circleCentreY;
+    private float circleOrbitRadius = 80f;
+    private float circleAngle = 0f;
+    private float circleAngularSpeed = 1.5f;
 
     @Override
     public void create() {
@@ -41,6 +59,13 @@ public class Main extends ApplicationAdapter {
         // Start the player in the centre
         playerX = Gdx.graphics.getWidth() / 2f;
         playerY = Gdx.graphics.getHeight() / 2f;
+
+        // Centre of circle goose's path
+        circleCentreX = Gdx.graphics.getWidth() * 0.7f;
+        circleCentreY = Gdx.graphics.getHeight() * 0.5f;
+
+        circleGooseX = circleCentreX + circleOrbitRadius;
+        circleGooseY = circleCentreY;
 
         updateProjection();
     }
@@ -117,6 +142,38 @@ public class Main extends ApplicationAdapter {
                 verticalGooseDirection = 1;
             }
 
+            // Move Diagonal Goose
+            diagonalGooseX += diagonalGooseSpeed
+                * diagonalGooseXDirection * delta;
+
+            diagonalGooseY += diagonalGooseSpeed
+                * diagonalGooseYDirection * delta;
+
+            if (diagonalGooseX + diagonalGooseRadius >= Gdx.graphics.getWidth()) {
+                diagonalGooseXDirection = -1;
+            }
+
+            if (diagonalGooseX - diagonalGooseRadius <= 0) {
+                diagonalGooseXDirection = 1;
+            }
+
+            // Reverse Diagonal Goose at vertical edges
+            if (diagonalGooseY + diagonalGooseRadius >= Gdx.graphics.getHeight()) {
+                diagonalGooseYDirection = -1;
+            }
+            if (diagonalGooseY - diagonalGooseRadius <= 0) {
+                diagonalGooseYDirection = 1;
+            }
+
+            // Move Circle Goose around a centre
+            circleAngle += circleAngularSpeed * delta;
+
+            circleGooseX = circleCentreX
+                + circleOrbitRadius * (float) Math.cos(circleAngle);
+
+            circleGooseY = circleCentreY
+                + circleOrbitRadius * (float) Math.sin(circleAngle);
+
             // Check collision with Horizontal Goose
             float dx = playerX - horizontalGooseX;
             float dy = playerY - horizontalGooseY;
@@ -175,6 +232,22 @@ public class Main extends ApplicationAdapter {
             verticalGooseX,
             verticalGooseY,
             verticalGooseRadius
+        );
+
+        // Draw Diagonal Goose in green
+        shapeRenderer.setColor(0, 1, 0, 1);
+        shapeRenderer.circle(
+            diagonalGooseX,
+            diagonalGooseY,
+            diagonalGooseRadius
+        );
+
+        // Draw Circle Goose in yellow
+        shapeRenderer.setColor(1, 1, 0, 1);
+        shapeRenderer.circle(
+            circleGooseX,
+            circleGooseY,
+            circleGooseRadius
         );
 
         shapeRenderer.end();

@@ -6,12 +6,17 @@ import com.badlogic.gdx.Input;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.Matrix4;
+import com.badlogic.gdx.graphics.g2d.BitmapFont;
+import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 
 public class Main extends ApplicationAdapter {
 
     private ShapeRenderer shapeRenderer;
     private Matrix4 cameraMatrix;
     private boolean collided = false;
+    private float timeRemaining=300f;   //game timer
+    private BitmapFont font;
+    private SpriteBatch batch;
 
     // Player position and movement
     private float playerX;
@@ -55,6 +60,8 @@ public class Main extends ApplicationAdapter {
     public void create() {
         shapeRenderer = new ShapeRenderer();
         cameraMatrix = new Matrix4();
+        font = new BitmapFont();
+        batch = new SpriteBatch();
 
         // Start the player in the centre
         playerX = Gdx.graphics.getWidth() / 2f;
@@ -99,6 +106,10 @@ public class Main extends ApplicationAdapter {
 
         // Calculate movement based on time
         float delta = Gdx.graphics.getDeltaTime();
+        //countdown timer
+        if (!collided && timeRemaining > 0) {
+            timeRemaining -= delta;
+        }
         float movement = playerSpeed * delta;
 
         // Only move objects if there has been no collision
@@ -271,6 +282,17 @@ public class Main extends ApplicationAdapter {
         );
 
         shapeRenderer.end();
+
+        batch.begin();
+
+        int minutes = (int) timeRemaining / 60;
+        int seconds = (int) timeRemaining % 60;
+
+        String timerText = String.format("%02d:%02d", minutes,seconds);
+
+        font.draw(batch,timerText,20,Gdx.graphics.getHeight()-20);
+
+        batch.end();
     }
 
     @Override

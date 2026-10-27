@@ -4,8 +4,12 @@ import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.graphics.GL20;
+import com.badlogic.gdx.graphics.g2d.BitmapFont;
+import com.badlogic.gdx.graphics.g2d.GlyphLayout;
+import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.Matrix4;
+import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 
@@ -14,9 +18,22 @@ public class Main extends ApplicationAdapter {
     private ShapeRenderer shapeRenderer;
     private Matrix4 cameraMatrix;
     private boolean collided = false;
-    private float timeRemaining=300f;   //game timer
+    private float timeRemaining = 300f; // game timer
     private BitmapFont font;
     private SpriteBatch batch;
+
+    //putting in the game assets
+    private Texture normalGoose;
+    private Texture flyingGoose;
+    private Texture greyGoose;
+    private Texture redBreastedGoose;
+
+    // Pause state: the game starts paused until the player presses Start
+    private GameState state = GameState.PAUSED;
+    private boolean started = false;
+
+    // Text for the start and pause screens
+    private GlyphLayout layout;
 
     // Player position and movement
     private float playerX;
@@ -58,10 +75,20 @@ public class Main extends ApplicationAdapter {
 
     @Override
     public void create() {
+        normalGoose = new Texture(Gdx.files.internal("normal_goose.png"));
+        flyingGoose = new Texture(Gdx.files.internal("flying_goose.png"));
+        greyGoose = new Texture(Gdx.files.internal("grey_goose.png"));
+        redBreastedGoose = new Texture(Gdx.files.internal("red_breasted_goose.png"));
+
         shapeRenderer = new ShapeRenderer();
         cameraMatrix = new Matrix4();
         font = new BitmapFont();
         batch = new SpriteBatch();
+
+        batch = new SpriteBatch();
+        font = new BitmapFont();
+        font.getData().setScale(2f);
+        layout = new GlyphLayout();
 
         // Start the player in the centre
         playerX = Gdx.graphics.getWidth() / 2f;
@@ -91,6 +118,7 @@ public class Main extends ApplicationAdapter {
         );
 
         shapeRenderer.setProjectionMatrix(cameraMatrix);
+        batch.setProjectionMatrix(cameraMatrix);
     }
 
     @Override
@@ -106,14 +134,27 @@ public class Main extends ApplicationAdapter {
 
         // Calculate movement based on time
         float delta = Gdx.graphics.getDeltaTime();
-        //countdown timer
+
+        // countdown timer
         if (!collided && timeRemaining > 0) {
             timeRemaining -= delta;
         }
+
         float movement = playerSpeed * delta;
 
-        // Only move objects if there has been no collision
-        if (!collided) {
+        // SPACE starts the game from the start screen
+        if (!started && Gdx.input.isKeyJustPressed(Input.Keys.SPACE)) {
+            started = true;
+            state = GameState.RUNNING;
+        }
+
+        // ESC pauses and resumes once the game has started
+        if (started && !collided && Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
+            togglePause();
+        }
+
+        // Only move objects while running and there has been no collision
+        if (state == GameState.RUNNING && !collided) {
 
             // WASD movement
             if (Gdx.input.isKeyPressed(Input.Keys.W)) {
@@ -237,10 +278,10 @@ public class Main extends ApplicationAdapter {
             );
         }
 
-        //Draw player and geese
+        // Draw player
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
 
-        // Player turns blue after collision
+// Player turns blue after collision
         if (collided) {
             shapeRenderer.setColor(0, 0, 1, 1);
         } else {
@@ -249,54 +290,119 @@ public class Main extends ApplicationAdapter {
 
         shapeRenderer.circle(playerX, playerY, playerRadius);
 
-        // Draw Horizontal Goose in red
-        shapeRenderer.setColor(1, 0, 0, 1);
-        shapeRenderer.circle(
-            horizontalGooseX,
-            horizontalGooseY,
-            horizontalGooseRadius
-        );
-
-        // Draw Vertical Goose in orange
-        shapeRenderer.setColor(1, 0.5f, 0, 1);
-        shapeRenderer.circle(
-            verticalGooseX,
-            verticalGooseY,
-            verticalGooseRadius
-        );
-
-        // Draw Diagonal Goose in green
-        shapeRenderer.setColor(0, 1, 0, 1);
-        shapeRenderer.circle(
-            diagonalGooseX,
-            diagonalGooseY,
-            diagonalGooseRadius
-        );
-
-        // Draw Circle Goose in yellow
-        shapeRenderer.setColor(1, 1, 0, 1);
-        shapeRenderer.circle(
-            circleGooseX,
-            circleGooseY,
-            circleGooseRadius
-        );
-
         shapeRenderer.end();
 
+// Draw geese and timer
         batch.begin();
 
+// Horizontal Goose - Normal Goose
+        batch.draw(
+            normalGoose,
+            horizontalGooseX - horizontalGooseRadius,
+            horizontalGooseY - horizontalGooseRadius,
+            horizontalGooseRadius * 2,
+            horizontalGooseRadius * 2
+        );
+
+// Vertical Goose - Grey Goose
+        batch.draw(
+            greyGoose,
+            verticalGooseX - verticalGooseRadius,
+            verticalGooseY - verticalGooseRadius,
+            verticalGooseRadius * 2,
+            verticalGooseRadius * 2
+        );
+
+// Diagonal Goose - Flying Goose
+        batch.draw(
+            flyingGoose,
+            diagonalGooseX - diagonalGooseRadius,
+            diagonalGooseY - diagonalGooseRadius,
+            diagonalGooseRadius * 2,
+            diagonalGooseRadius * 2
+        );
+
+// Circle Goose - Red-Breasted Goose
+        batch.draw(
+            redBreastedGoose,
+            circleGooseX - circleGooseRadius,
+            circleGooseY - circleGooseRadius,
+            circleGooseRadius * 2,
+            circleGooseRadius * 2
+        );
+
+// Draw timer
         int minutes = (int) timeRemaining / 60;
         int seconds = (int) timeRemaining % 60;
 
-        String timerText = String.format("%02d:%02d", minutes,seconds);
+        String timerText = String.format("%02d:%02d", minutes, seconds);
 
-        font.draw(batch,timerText,20,Gdx.graphics.getHeight()-20);
+        font.draw(batch, timerText, 20, Gdx.graphics.getHeight() - 20);
+
+        batch.end();
+
+        // Draw the start or pause screen over the game
+        if (state == GameState.PAUSED) {
+            if (started) {
+                drawOverlay("PAUSED", "Press ESC to resume");
+            } else {
+                drawOverlay("GOOSE GAME", "Press SPACE to start");
+            }
+        }
+    }
+
+    // Switch between RUNNING and PAUSED
+    private void togglePause() {
+        if (state == GameState.RUNNING) {
+            state = GameState.PAUSED;
+        } else if (state == GameState.PAUSED) {
+            state = GameState.RUNNING;
+        }
+    }
+
+    // Darken the screen and show a title with a hint underneath
+    private void drawOverlay(String title, String hint) {
+        float width = Gdx.graphics.getWidth();
+        float height = Gdx.graphics.getHeight();
+
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+        shapeRenderer.setColor(0, 0, 0, 0.6f);
+        shapeRenderer.rect(0, 0, width, height);
+        shapeRenderer.end(); //
+
+
+
+        Gdx.gl.glDisable(GL20.GL_BLEND);
+
+        batch.begin();
+        font.setColor(1, 1, 1, 1);
+
+        layout.setText(font, title);
+        font.draw(batch, layout, (width - layout.width) / 2f, height / 2f + 40f);
+
+        layout.setText(font, hint);
+        font.draw(batch, layout, (width - layout.width) / 2f, height / 2f - 10f);
 
         batch.end();
     }
 
     @Override
+    public void pause() {
+        // Pause automatically if the window loses focus or is minimised
+        if (state == GameState.RUNNING) {
+            state = GameState.PAUSED;
+        }
+    }
+
+    @Override
     public void dispose() {
         shapeRenderer.dispose();
+        batch.dispose();
+        font.dispose();
+        normalGoose.dispose();
+        flyingGoose.dispose();
+        greyGoose.dispose();
+        redBreastedGoose.dispose();
     }
 }

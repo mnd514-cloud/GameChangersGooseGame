@@ -30,17 +30,4 @@ HiddenEvent ..> Player : position check
 HiddenEvent ..> GameWorld : applies effect
 SupplyCacheEvent ..> Item : creates pickup
 
-note right of HiddenEvent
-  Invisible to the player until triggered.
-  Triggered by entering a zone.
-  Single use; world increments the counter.
-end note
-note right of SupplyCacheEvent
-  Suggested positive A1 event:
-  reveals a new supply item.
-end note
-note right of GooseRushEvent
-  Suggested negative A1 event:
-  triggers a sudden goose wave.
-end note
 @enduml

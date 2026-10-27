@@ -8,7 +8,7 @@ participant GameTimer as Timer
 participant HUD
 
 note over World,Timer
-  Initial state = PAUSED; countdown = 300 seconds.
+  Initial state = PAUSED.
 end note
 User -> Screen : press Start
 Screen -> World : start()

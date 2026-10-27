@@ -135,9 +135,9 @@ public class Main extends ApplicationAdapter {
         // Calculate movement based on time
         float delta = Gdx.graphics.getDeltaTime();
 
-        // countdown timer
-        if (!collided && timeRemaining > 0) {
-            timeRemaining -= delta;
+        // countdown timer (only ticks when game is actually running)
+        if (state == GameState.RUNNING && !collided) {
+            timeRemaining = Math.max(0f, timeRemaining - delta); // ensuring timer never goes below 0
         }
 
         float movement = playerSpeed * delta;

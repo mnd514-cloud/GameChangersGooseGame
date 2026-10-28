@@ -10,19 +10,17 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.Matrix4;
 import com.badlogic.gdx.graphics.Texture;
-import com.badlogic.gdx.graphics.g2d.BitmapFont;
-import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 
 public class Main extends ApplicationAdapter {
 
     private ShapeRenderer shapeRenderer;
     private Matrix4 cameraMatrix;
-    private boolean collided = false;
-    private float timeRemaining = 300f; // game timer
+    private static final float GAME_DURATION = 300f; // seconds
+    private float timeRemaining = GAME_DURATION; // game timer
     private BitmapFont font;
     private SpriteBatch batch;
 
-    //putting in the game assets
+    // putting in the game assets
     private Texture normalGoose;
     private Texture flyingGoose;
     private Texture greyGoose;
@@ -82,11 +80,10 @@ public class Main extends ApplicationAdapter {
 
         shapeRenderer = new ShapeRenderer();
         cameraMatrix = new Matrix4();
+
         font = new BitmapFont();
         batch = new SpriteBatch();
 
-        batch = new SpriteBatch();
-        font = new BitmapFont();
         font.getData().setScale(2f);
         layout = new GlyphLayout();
 
@@ -123,11 +120,18 @@ public class Main extends ApplicationAdapter {
 
     @Override
     public void resize(int width, int height) {
+        if (width == 0 || height == 0) {
+            return; // minimised - saving previous projection
+        }
         updateProjection();
     }
 
     @Override
     public void render() {
+        // window is minimised - skip frame
+        if (Gdx.graphics.getWidth() == 0 || Gdx.graphics.getHeight() == 0) {
+            return;
+        }
         // Makes the screen black
         Gdx.gl.glClearColor(0, 0, 0, 1);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
@@ -136,25 +140,41 @@ public class Main extends ApplicationAdapter {
         float delta = Gdx.graphics.getDeltaTime();
 
         // countdown timer (only ticks when game is actually running)
-        if (state == GameState.RUNNING && !collided) {
+        if (state == GameState.RUNNING) {
             timeRemaining = Math.max(0f, timeRemaining - delta); // ensuring timer never goes below 0
         }
 
         float movement = playerSpeed * delta;
 
         // SPACE starts the game from the start screen
-        if (!started && Gdx.input.isKeyJustPressed(Input.Keys.SPACE)) {
+        if (!started && state == GameState.PAUSED && Gdx.input.isKeyJustPressed(Input.Keys.SPACE)) {
             started = true;
             state = GameState.RUNNING;
         }
 
         // ESC pauses and resumes once the game has started
-        if (started && !collided && Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
+        if (started && Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
             togglePause();
         }
 
-        // Only move objects while running and there has been no collision
-        if (state == GameState.RUNNING && !collided) {
+        // I displays the game's instructions from the start/ pause screens
+        if (state == GameState.PAUSED && Gdx.input.isKeyJustPressed(Input.Keys.I)) {
+            state = GameState.INSTRUCTIONS;
+        } else if (state == GameState.INSTRUCTIONS
+            && (Gdx.input.isKeyJustPressed(Input.Keys.I)
+            || Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE))) {
+            state = GameState.PAUSED;
+        }
+
+        // R resets the game after a win or loss
+        if ((state == GameState.WON || state == GameState.LOST)
+            && Gdx.input.isKeyJustPressed(Input.Keys.R)) {
+            resetGame();
+            state = GameState.RUNNING;
+        }
+
+        // Only move objects while the game is running
+        if (state == GameState.RUNNING) {
 
             // WASD movement
             if (Gdx.input.isKeyPressed(Input.Keys.W)) {
@@ -232,7 +252,7 @@ public class Main extends ApplicationAdapter {
             float combinedRadius = playerRadius + horizontalGooseRadius;
 
             if (dx * dx + dy * dy <= combinedRadius * combinedRadius) {
-                collided = true;
+                state = GameState.LOST;
                 Gdx.app.log("Game", "Hit Horizontal Goose");
             }
 
@@ -242,7 +262,7 @@ public class Main extends ApplicationAdapter {
             combinedRadius = playerRadius + verticalGooseRadius;
 
             if (dx * dx + dy * dy <= combinedRadius * combinedRadius) {
-                collided = true;
+                state = GameState.LOST;
                 Gdx.app.log("Game", "Hit Vertical Goose");
             }
 
@@ -252,7 +272,7 @@ public class Main extends ApplicationAdapter {
             combinedRadius = playerRadius + diagonalGooseRadius;
 
             if (dx * dx + dy * dy <= combinedRadius * combinedRadius) {
-                collided = true;
+                state = GameState.LOST;
                 Gdx.app.log("Game", "Hit Diagonal Goose");
             }
 
@@ -262,8 +282,16 @@ public class Main extends ApplicationAdapter {
             combinedRadius = playerRadius + circleGooseRadius;
 
             if (dx * dx + dy * dy <= combinedRadius * combinedRadius) {
-                collided = true;
+                state = GameState.LOST;
                 Gdx.app.log("Game", "Hit Circle Goose");
+            }
+
+            // EDGE CASE: need to check GameState here again because if player
+            // collides with goose at same frame where timer hits 0, the win
+            // may override the loss.
+            if (state == GameState.RUNNING && timeRemaining <= 0) {
+                state = GameState.WON;
+                Gdx.app.log("Game", "Survived - You Win");
             }
 
             // Keep player inside window
@@ -281,8 +309,8 @@ public class Main extends ApplicationAdapter {
         // Draw player
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
 
-// Player turns blue after collision
-        if (collided) {
+        // Player turns blue after collision
+        if (state == GameState.LOST) {
             shapeRenderer.setColor(0, 0, 1, 1);
         } else {
             shapeRenderer.setColor(1, 1, 1, 1);
@@ -292,10 +320,10 @@ public class Main extends ApplicationAdapter {
 
         shapeRenderer.end();
 
-// Draw geese and timer
+        // Draw geese and timer
         batch.begin();
 
-// Horizontal Goose - Normal Goose
+        // Horizontal Goose - Normal Goose
         batch.draw(
             normalGoose,
             horizontalGooseX - horizontalGooseRadius,
@@ -304,7 +332,7 @@ public class Main extends ApplicationAdapter {
             horizontalGooseRadius * 2
         );
 
-// Vertical Goose - Grey Goose
+        // Vertical Goose - Grey Goose
         batch.draw(
             greyGoose,
             verticalGooseX - verticalGooseRadius,
@@ -313,7 +341,7 @@ public class Main extends ApplicationAdapter {
             verticalGooseRadius * 2
         );
 
-// Diagonal Goose - Flying Goose
+        // Diagonal Goose - Flying Goose
         batch.draw(
             flyingGoose,
             diagonalGooseX - diagonalGooseRadius,
@@ -322,7 +350,7 @@ public class Main extends ApplicationAdapter {
             diagonalGooseRadius * 2
         );
 
-// Circle Goose - Red-Breasted Goose
+        // Circle Goose - Red-Breasted Goose
         batch.draw(
             redBreastedGoose,
             circleGooseX - circleGooseRadius,
@@ -331,9 +359,11 @@ public class Main extends ApplicationAdapter {
             circleGooseRadius * 2
         );
 
-// Draw timer
-        int minutes = (int) timeRemaining / 60;
-        int seconds = (int) timeRemaining % 60;
+        // Draw timer. Using ceil function to show last second properly
+        // e.g. with 0.9s left the timer keeps displaying 00:01 until
+        // time has actually reached 0s.
+        int minutes = (int) Math.ceil(timeRemaining) / 60;
+        int seconds = (int) Math.ceil(timeRemaining) % 60;
 
         String timerText = String.format("%02d:%02d", minutes, seconds);
 
@@ -344,10 +374,20 @@ public class Main extends ApplicationAdapter {
         // Draw the start or pause screen over the game
         if (state == GameState.PAUSED) {
             if (started) {
-                drawOverlay("PAUSED", "Press ESC to resume");
+                drawOverlay("PAUSED", "ESC to resume | I for instructions");
             } else {
-                drawOverlay("GOOSE GAME", "Press SPACE to start");
+                drawOverlay("GOOSE GAME", "SPACE to start | I for instructions");
             }
+        }
+
+        if (state == GameState.INSTRUCTIONS) {
+            drawInstructions();
+        }
+
+        if (state == GameState.LOST) {
+            drawOverlay("YOU LOST", "Press R to restart");
+        } else if (state == GameState.WON) {
+            drawOverlay("YOU WIN!", "Press R to restart");
         }
     }
 
@@ -360,21 +400,39 @@ public class Main extends ApplicationAdapter {
         }
     }
 
+    // Resetting timer, player, and all geese back to their starting values.
+    private void resetGame() {
+        timeRemaining = GAME_DURATION;
+
+        playerX = Gdx.graphics.getWidth() / 2f;
+        playerY = Gdx.graphics.getHeight() / 2f;
+
+        horizontalGooseX = 100f;
+        horizontalGooseY = 400f;
+        horizontalGooseDirection = 1;
+
+        verticalGooseX = 400f;
+        verticalGooseY = 100f;
+        verticalGooseDirection = 1;
+
+        diagonalGooseX = 200f;
+        diagonalGooseY = 200f;
+        diagonalGooseXDirection = 1;
+        diagonalGooseYDirection = 1;
+
+        circleAngle = 0f;
+        circleGooseX = circleCentreX + circleOrbitRadius;
+        circleGooseY = circleCentreY;
+    }
+
     // Darken the screen and show a title with a hint underneath
     private void drawOverlay(String title, String hint) {
         float width = Gdx.graphics.getWidth();
         float height = Gdx.graphics.getHeight();
 
-        Gdx.gl.glEnable(GL20.GL_BLEND);
-        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
-        shapeRenderer.setColor(0, 0, 0, 0.6f);
-        shapeRenderer.rect(0, 0, width, height);
-        shapeRenderer.end(); //
+        dimScreen(0.6f);
 
-
-
-        Gdx.gl.glDisable(GL20.GL_BLEND);
-
+        // drawing text
         batch.begin();
         font.setColor(1, 1, 1, 1);
 
@@ -385,6 +443,50 @@ public class Main extends ApplicationAdapter {
         font.draw(batch, layout, (width - layout.width) / 2f, height / 2f - 10f);
 
         batch.end();
+    }
+
+    // darkens the screen and shows game instructions.
+    private void drawInstructions() {
+        float width = Gdx.graphics.getWidth();
+        float height = Gdx.graphics.getHeight();
+
+        String[] lines = {
+            "HOW TO PLAY",
+            "",
+            "Dodge the geese for 5 minutes to win.",
+            "Touch a goose and you lose!",
+            "",
+            "CONTROLS",
+            "W A S D - move",
+            "ESC - pause / resume",
+            "R - restart after winning or losing",
+            "",
+            "Press I or ESC to go back"
+        };
+
+        dimScreen(0.85f);
+        batch.begin();
+        font.getData().setScale(1.5f);
+        font.setColor(1, 1, 1, 1);
+
+        float y = height - 50f;
+        for (String line : lines) {
+            layout.setText(font, line);
+            font.draw(batch, layout, (width - layout.width) / 2f, y);
+            y -= 32f;
+        }
+
+        font.getData().setScale(2f);
+        batch.end();
+    }
+
+    private void dimScreen(float alpha) {
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+        shapeRenderer.setColor(0, 0, 0, alpha);
+        shapeRenderer.rect(0, 0, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
+        shapeRenderer.end();
+        Gdx.gl.glDisable(GL20.GL_BLEND);
     }
 
     @Override

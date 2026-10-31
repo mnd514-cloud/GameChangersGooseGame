@@ -19,6 +19,13 @@ public class Main extends ApplicationAdapter {
     private static final float GAME_DURATION = 300f;
     private float timeRemaining = GAME_DURATION;
 
+    // Game state
+    private GameState state = GameState.PAUSED;
+    private boolean started = false;
+
+    // Player inventory
+    private Inventory inventory;
+
     private BitmapFont font;
     private SpriteBatch batch;
 
@@ -27,10 +34,6 @@ public class Main extends ApplicationAdapter {
     private Texture flyingGoose;
     private Texture greyGoose;
     private Texture redBreastedGoose;
-
-    // Game state
-    private GameState state = GameState.PAUSED;
-    private boolean started = false;
 
     // Text layout
     private GlyphLayout layout;
@@ -73,8 +76,20 @@ public class Main extends ApplicationAdapter {
     private float circleAngle = 0f;
     private float circleAngularSpeed = 1.5f;
 
+    // Geese attracted to bread
+    private boolean breadActive = false;
+    private float breadX;
+    private float breadY;
+    private float breadTimer = 0f;
+
+    private static final float BREAD_DURATION = 10f;
+    private static final float BREAD_SPEED = 250f;
+
+
     @Override
     public void create() {
+
+        inventory = new Inventory();
 
         normalGoose = new Texture(
             Gdx.files.internal("normal_goose.png")
@@ -167,6 +182,37 @@ public class Main extends ApplicationAdapter {
 
         float movement = playerSpeed * delta;
 
+        // Select bread with 1
+        if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_1)) {
+            inventory.selectSlot(0);
+        }
+
+        // Select shield with 2
+        if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_2)) {
+            inventory.selectSlot(1);
+        }
+
+        // E uses bread if bread is selected
+        if (state == GameState.RUNNING
+            && Gdx.input.isKeyJustPressed(Input.Keys.E)
+            && inventory.getSelectedSlot() == 0) {
+
+            String itemUsed = inventory.useSelectedItem();
+
+            if (itemUsed != null) {
+
+                // Record where the bread was thrown
+                breadX = playerX;
+                breadY = playerY;
+
+                // Activate the bread distraction
+                breadActive = true;
+                breadTimer = BREAD_DURATION;
+
+                Gdx.app.log("Inventory", "Threw bread!");
+            }
+        }
+
         // SPACE starts the game from the start screen
         if (!started
             && state == GameState.PAUSED
@@ -183,7 +229,7 @@ public class Main extends ApplicationAdapter {
             togglePause();
         }
 
-        // I displays instructions from the start/pause screens
+        // It displays instructions from the start/pause screens
         if (state == GameState.PAUSED
             && Gdx.input.isKeyJustPressed(Input.Keys.I)) {
 
@@ -224,121 +270,11 @@ public class Main extends ApplicationAdapter {
                 playerX += movement;
             }
 
-            // Move Horizontal Goose
-            horizontalGooseX += horizontalGooseSpeed
-                * horizontalGooseDirection * delta;
+            // Move all four geese
+            updateGooseMovement(delta);
 
-            // Reverse Horizontal Goose at screen edges
-            if (horizontalGooseX + horizontalGooseRadius
-                >= Gdx.graphics.getWidth()) {
-
-                horizontalGooseDirection = -1;
-            }
-
-            if (horizontalGooseX - horizontalGooseRadius <= 0) {
-                horizontalGooseDirection = 1;
-            }
-
-            // Move Vertical Goose
-            verticalGooseY += verticalGooseSpeed
-                * verticalGooseDirection * delta;
-
-            // Reverse Vertical Goose at screen edges
-            if (verticalGooseY + verticalGooseRadius
-                >= Gdx.graphics.getHeight()) {
-
-                verticalGooseDirection = -1;
-            }
-
-            if (verticalGooseY - verticalGooseRadius <= 0) {
-                verticalGooseDirection = 1;
-            }
-
-            // Move Diagonal Goose
-            diagonalGooseX += diagonalGooseSpeed
-                * diagonalGooseXDirection * delta;
-
-            diagonalGooseY += diagonalGooseSpeed
-                * diagonalGooseYDirection * delta;
-
-            // Reverse Diagonal Goose at horizontal edges
-            if (diagonalGooseX + diagonalGooseRadius
-                >= Gdx.graphics.getWidth()) {
-
-                diagonalGooseXDirection = -1;
-            }
-
-            if (diagonalGooseX - diagonalGooseRadius <= 0) {
-                diagonalGooseXDirection = 1;
-            }
-
-            // Reverse Diagonal Goose at vertical edges
-            if (diagonalGooseY + diagonalGooseRadius
-                >= Gdx.graphics.getHeight()) {
-
-                diagonalGooseYDirection = -1;
-            }
-
-            if (diagonalGooseY - diagonalGooseRadius <= 0) {
-                diagonalGooseYDirection = 1;
-            }
-
-            // Move Circle Goose around a centre
-            circleAngle += circleAngularSpeed * delta;
-
-            circleGooseX = circleCentreX
-                + circleOrbitRadius * (float) Math.cos(circleAngle);
-
-            circleGooseY = circleCentreY
-                + circleOrbitRadius * (float) Math.sin(circleAngle);
-
-            // Check collision with Horizontal Goose
-            float dx = playerX - horizontalGooseX;
-            float dy = playerY - horizontalGooseY;
-            float combinedRadius = playerRadius + horizontalGooseRadius;
-
-            if (dx * dx + dy * dy
-                <= combinedRadius * combinedRadius) {
-
-                state = GameState.LOST;
-                Gdx.app.log("Game", "Hit Horizontal Goose");
-            }
-
-            // Check collision with Vertical Goose
-            dx = playerX - verticalGooseX;
-            dy = playerY - verticalGooseY;
-            combinedRadius = playerRadius + verticalGooseRadius;
-
-            if (dx * dx + dy * dy
-                <= combinedRadius * combinedRadius) {
-
-                state = GameState.LOST;
-                Gdx.app.log("Game", "Hit Vertical Goose");
-            }
-
-            // Check collision with Diagonal Goose
-            dx = playerX - diagonalGooseX;
-            dy = playerY - diagonalGooseY;
-            combinedRadius = playerRadius + diagonalGooseRadius;
-
-            if (dx * dx + dy * dy
-                <= combinedRadius * combinedRadius) {
-
-                state = GameState.LOST;
-                Gdx.app.log("Game", "Hit Diagonal Goose");
-            }
-
-            // Check collision with Circle Goose
-            dx = playerX - circleGooseX;
-            dy = playerY - circleGooseY;
-            combinedRadius = playerRadius + circleGooseRadius;
-
-            if (dx * dx + dy * dy
-                <= combinedRadius * combinedRadius) {
-
-                state = GameState.LOST;
-                Gdx.app.log("Game", "Hit Circle Goose");
-            }
+            // Check collisions with all four geese
+            checkGooseCollisions();
 
             // Check game state again to prevent a win
             // from overriding a loss in the same frame
@@ -468,6 +404,284 @@ public class Main extends ApplicationAdapter {
         } else if (state == GameState.WON) {
             drawOverlay("YOU WIN!", "Press R to restart");
         }
+        // Draw the inventory hotbar
+        if (started) {
+            drawHotbar();
+        }
+
+    }
+
+    // Handles the movement of all four geese
+    private void updateGooseMovement(float delta) {
+
+        // Update the bread distraction timer
+        if (breadActive) {
+            breadTimer -= delta;
+
+            if (breadTimer <= 0) {
+                breadActive = false;
+            }
+        }
+
+        // BREAD MOVEMENT OVERRIDE
+        if (breadActive) {
+
+            // Horizontal Goose
+            horizontalGooseX = moveTowards(
+                horizontalGooseX, breadX - 30f, BREAD_SPEED * delta
+            );
+            horizontalGooseY = moveTowards(
+                horizontalGooseY, breadY, BREAD_SPEED * delta
+            );
+
+            // Vertical Goose
+            verticalGooseX = moveTowards(
+                verticalGooseX, breadX + 30f, BREAD_SPEED * delta
+            );
+            verticalGooseY = moveTowards(
+                verticalGooseY, breadY, BREAD_SPEED * delta
+            );
+
+            // Diagonal Goose
+            diagonalGooseX = moveTowards(
+                diagonalGooseX, breadX, BREAD_SPEED * delta
+            );
+            diagonalGooseY = moveTowards(
+                diagonalGooseY, breadY + 30f, BREAD_SPEED * delta
+            );
+
+            // Circle Goose
+            circleGooseX = moveTowards(
+                circleGooseX, breadX, BREAD_SPEED * delta
+            );
+            circleGooseY = moveTowards(
+                circleGooseY, breadY - 30f, BREAD_SPEED * delta
+            );
+
+        } else {
+
+            // NORMAL MOVEMENT
+
+            // Horizontal Goose
+            horizontalGooseX += horizontalGooseSpeed
+                * horizontalGooseDirection * delta;
+
+            // Reverse Horizontal Goose at screen edges
+            if (horizontalGooseX + horizontalGooseRadius
+                >= Gdx.graphics.getWidth()) {
+
+                horizontalGooseDirection = -1;
+            }
+
+            if (horizontalGooseX - horizontalGooseRadius <= 0) {
+                horizontalGooseDirection = 1;
+            }
+
+            // Vertical Goose
+            verticalGooseY += verticalGooseSpeed
+                * verticalGooseDirection * delta;
+
+            // Reverse Vertical Goose at screen edges
+            if (verticalGooseY + verticalGooseRadius
+                >= Gdx.graphics.getHeight()) {
+
+                verticalGooseDirection = -1;
+            }
+
+            if (verticalGooseY - verticalGooseRadius <= 0) {
+                verticalGooseDirection = 1;
+            }
+
+            // Diagonal Goose
+            diagonalGooseX += diagonalGooseSpeed
+                * diagonalGooseXDirection * delta;
+
+            diagonalGooseY += diagonalGooseSpeed
+                * diagonalGooseYDirection * delta;
+
+            // Reverse Diagonal Goose at horizontal edges
+            if (diagonalGooseX + diagonalGooseRadius
+                >= Gdx.graphics.getWidth()) {
+
+                diagonalGooseXDirection = -1;
+            }
+
+            if (diagonalGooseX - diagonalGooseRadius <= 0) {
+                diagonalGooseXDirection = 1;
+            }
+
+            // Reverse Diagonal Goose at vertical edges
+            if (diagonalGooseY + diagonalGooseRadius
+                >= Gdx.graphics.getHeight()) {
+
+                diagonalGooseYDirection = -1;
+            }
+
+            if (diagonalGooseY - diagonalGooseRadius <= 0) {
+                diagonalGooseYDirection = 1;
+            }
+
+            // Circle Goose
+            circleAngle += circleAngularSpeed * delta;
+
+            circleGooseX = circleCentreX
+                + circleOrbitRadius * (float) Math.cos(circleAngle);
+
+            circleGooseY = circleCentreY
+                + circleOrbitRadius * (float) Math.sin(circleAngle);
+        }
+    }
+
+    // Handles collisions between the player and all four geese
+    private void checkGooseCollisions() {
+
+        // Horizontal Goose
+        float dx = playerX - horizontalGooseX;
+        float dy = playerY - horizontalGooseY;
+        float combinedRadius = playerRadius + horizontalGooseRadius;
+
+        if (dx * dx + dy * dy <= combinedRadius * combinedRadius) {
+
+            state = GameState.LOST;
+            Gdx.app.log("Game", "Hit Horizontal Goose");
+        }
+
+        // Vertical Goose
+        dx = playerX - verticalGooseX;
+        dy = playerY - verticalGooseY;
+        combinedRadius = playerRadius + verticalGooseRadius;
+
+        if (dx * dx + dy * dy <= combinedRadius * combinedRadius) {
+
+            state = GameState.LOST;
+            Gdx.app.log("Game", "Hit Vertical Goose");
+        }
+
+        // Diagonal Goose
+        dx = playerX - diagonalGooseX;
+        dy = playerY - diagonalGooseY;
+        combinedRadius = playerRadius + diagonalGooseRadius;
+
+        if (dx * dx + dy * dy <= combinedRadius * combinedRadius) {
+
+            state = GameState.LOST;
+            Gdx.app.log("Game", "Hit Diagonal Goose");
+        }
+
+        // Circle Goose
+        dx = playerX - circleGooseX;
+        dy = playerY - circleGooseY;
+        combinedRadius = playerRadius + circleGooseRadius;
+
+        if (dx * dx + dy * dy <= combinedRadius * combinedRadius) {
+
+            state = GameState.LOST;
+            Gdx.app.log("Game", "Hit Circle Goose");
+        }
+    }
+
+    // Moves a goose towards a target without overshooting
+    private float moveTowards(float current, float target, float maxStep) {
+
+        if (Math.abs(target - current) <= maxStep) {
+            return target;
+        }
+
+        if (current < target) {
+            return current + maxStep;
+        } else {
+            return current - maxStep;
+        }
+    }
+
+    // Draw the inventory hotbar
+    private void drawHotbar() {
+
+        float slotSize = 55f;
+        float gap = 6f;
+
+        float totalWidth = (slotSize * 9) + (gap * 8);
+
+        float startX = (Gdx.graphics.getWidth() - totalWidth) / 2f;
+        float startY = 15f;
+
+        // Draw the slot backgrounds
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+
+        for (int i = 0; i < 9; i++) {
+
+            float x = startX + i * (slotSize + gap);
+
+            shapeRenderer.setColor(0.2f, 0.2f, 0.2f, 1f);
+
+            shapeRenderer.rect(
+                x,
+                startY,
+                slotSize,
+                slotSize
+            );
+        }
+
+        shapeRenderer.end();
+
+        // Highlight the selected slot
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Line);
+
+        shapeRenderer.setColor(1f, 0.85f, 0f, 1f);
+
+        float selectedX = startX
+            + inventory.getSelectedSlot() * (slotSize + gap);
+
+        shapeRenderer.rect(
+            selectedX,
+            startY,
+            slotSize,
+            slotSize
+        );
+
+        shapeRenderer.end();
+
+        // Item names and amounts
+        batch.begin();
+
+        font.getData().setScale(1f);
+
+        for (int i = 0; i < 9; i++) {
+
+            float x = startX + i * (slotSize + gap);
+
+            // Slot number
+            font.draw(
+                batch,
+                String.valueOf(i + 1),
+                x + 5,
+                startY + slotSize - 5
+            );
+
+            // Item abbreviation
+            String item = inventory.getItem(i);
+
+            if (item.equals("Bread")) {
+                font.draw(batch, "B", x + 25, startY + 32);
+
+            } else if (item.equals("Shield")) {
+                font.draw(batch, "S", x + 25, startY + 32);
+            }
+
+            // Item quantity
+            if (inventory.getQuantity(i) > 0) {
+                font.draw(
+                    batch,
+                    "x" + inventory.getQuantity(i),
+                    x + 20,
+                    startY + 10
+                );
+            }
+        }
+
+        font.getData().setScale(2f);
+
+        batch.end();
     }
 
     // Switch between RUNNING and PAUSED
@@ -505,6 +719,10 @@ public class Main extends ApplicationAdapter {
         circleAngle = 0f;
         circleGooseX = circleCentreX + circleOrbitRadius;
         circleGooseY = circleCentreY;
+
+        // Reset bread
+        breadActive = false;
+        breadTimer = 0f;
     }
 
     // Darken the screen and show a title with a hint

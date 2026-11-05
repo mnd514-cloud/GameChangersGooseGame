@@ -85,6 +85,15 @@ public class Main extends ApplicationAdapter {
     private static final float BREAD_DURATION = 10f;
     private static final float BREAD_SPEED = 250f;
 
+    // Hidden event
+    private boolean hiddenEventTriggered = false;
+    private static final float HIDDEN_ZONE_SIZE = 100f;
+
+    // Goose speed boost (hidden event)
+    private boolean speedBoostActive = false;
+    private float speedBoostTimer = 0f;
+    private static final float SPEED_BOOST_DURATION = 10f;
+    private static final float SPEED_BOOST_MULTIPLIER = 1.75f;
 
     @Override
     public void create() {
@@ -301,6 +310,30 @@ public class Main extends ApplicationAdapter {
                     Gdx.graphics.getHeight() - playerRadius
                 )
             );
+            float screenW = Gdx.graphics.getWidth();
+            float screenH = Gdx.graphics.getHeight();
+
+            if (!hiddenEventTriggered
+            && playerX > screenW - HIDDEN_ZONE_SIZE
+            && playerY > screenH - HIDDEN_ZONE_SIZE) {
+                hiddenEventTriggered = true;
+                speedBoostActive = true;
+                speedBoostTimer = SPEED_BOOST_DURATION;
+                Gdx.app.log("HiddenEvent", "Top-right event triggered");
+            }
+
+        }
+        // Draw the hidden event
+        if (hiddenEventTriggered) {
+            shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+            shapeRenderer.setColor(0, 0, 1, 1);
+            shapeRenderer.rect(
+                Gdx.graphics.getWidth() - HIDDEN_ZONE_SIZE,
+                Gdx.graphics.getHeight() - HIDDEN_ZONE_SIZE,
+                HIDDEN_ZONE_SIZE,
+                HIDDEN_ZONE_SIZE
+            );
+            shapeRenderer.end();
         }
 
         // Draw player
@@ -374,6 +407,18 @@ public class Main extends ApplicationAdapter {
             Gdx.graphics.getHeight() - 20
         );
 
+        // Show a warning while the speed boost is active
+        if (speedBoostActive) {
+            font.setColor(1, 0.3f, 0.3f, 1);
+            font.draw(
+                batch,
+                "GEESE ENRAGED! " + (int) Math.ceil(speedBoostTimer) + "s",
+                20,
+                Gdx.graphics.getHeight() - 60
+            );
+            font.setColor(1, 1, 1, 1);
+        }
+
         batch.end();
 
         // Draw the start or pause screen
@@ -412,16 +457,29 @@ public class Main extends ApplicationAdapter {
     }
 
     // Handles the movement of all four geese
-    private void updateGooseMovement(float delta) {
+    private void updateGooseMovement(float realDelta) {
 
         // Update the bread distraction timer
         if (breadActive) {
-            breadTimer -= delta;
+            breadTimer -= realDelta;
 
             if (breadTimer <= 0) {
                 breadActive = false;
             }
         }
+        // Update the speed boost timer (real time)
+        if (speedBoostActive) {
+            speedBoostTimer -= realDelta;
+
+            if (speedBoostTimer <= 0) {
+                speedBoostActive = false;
+            }
+        }
+
+        // Geese move faster while the boost is active
+        float delta = speedBoostActive
+            ? realDelta * SPEED_BOOST_MULTIPLIER
+            : realDelta;
 
         // BREAD MOVEMENT OVERRIDE
         if (breadActive) {
@@ -723,6 +781,12 @@ public class Main extends ApplicationAdapter {
         // Reset bread
         breadActive = false;
         breadTimer = 0f;
+
+        // Reset HiddenEvent
+        hiddenEventTriggered = false;
+        speedBoostActive = false;
+        speedBoostTimer = 0f;
+
     }
 
     // Darken the screen and show a title with a hint

@@ -187,4 +187,9 @@ public class Goose {
     public GooseState getState() { return state; }
     public MovementType getMovementType() { return movementType; }
 
+    // Disperse the goose
+    public void disperse() {
+        state = GooseState.DISPERSED;
+    }
+
 }

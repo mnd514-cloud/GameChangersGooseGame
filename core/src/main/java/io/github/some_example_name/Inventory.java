@@ -28,30 +28,31 @@ public class Inventory {
         }
     }
 
-    // Get currently selected slot
     public int getSelectedSlot() {
         return selectedSlot;
     }
 
-    // Get item name in a particular slot
     public String getItem(int slot) {
         return items[slot];
     }
 
-    // Get quantity in a particular slot
     public int getQuantity(int slot) {
         return quantities[slot];
     }
 
-    // Get currently selected item
     public String getSelectedItem() {
         return items[selectedSlot];
     }
 
-    // Use currently selected item
+    // Use the currently selected item
     public String useSelectedItem() {
 
         if (quantities[selectedSlot] <= 0) {
+            return null;
+        }
+
+        // Shield is passive and cannot be manually used
+        if (items[selectedSlot].equals("Shield")) {
             return null;
         }
 
@@ -67,9 +68,16 @@ public class Inventory {
 
     // Consume shield after blocking a hit
     public void consumeShield() {
-        if (quantities[1] > 0) {
+        if (hasShield()) {
             quantities[1]--;
         }
     }
-}
 
+    // Restore starting inventory when restarting
+    public void reset() {
+        quantities[0] = 3;
+        quantities[1] = 1;
+
+        selectedSlot = 0;
+    }
+}

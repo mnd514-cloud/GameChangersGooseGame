@@ -24,6 +24,10 @@ public class Main extends ApplicationAdapter {
     private GameState state = GameState.PAUSED;
     private boolean started = false;
 
+    // Game statistics (tracking x thing used)
+    private int itemsUsed = 0;
+    private int eventsInteracted = 0;
+
     // Player inventory
     private Inventory inventory;
 
@@ -193,6 +197,18 @@ public class Main extends ApplicationAdapter {
 
             if (itemUsed != null) {
 
+                itemsUsed++;
+
+                // Record where the bread was thrown
+                breadX = playerX;
+                breadY = playerY;
+
+                // Activate the bread distraction
+                breadActive = true;
+                breadTimer = BREAD_DURATION;
+
+                Gdx.app.log("Inventory", "Threw bread!");
+
                 // Record where the bread was thrown
                 breadX = playerX;
                 breadY = playerY;
@@ -297,11 +313,15 @@ public class Main extends ApplicationAdapter {
             float screenH = Gdx.graphics.getHeight();
 
             if (!hiddenEventTriggered
-            && playerX > screenW - HIDDEN_ZONE_SIZE
-            && playerY > screenH - HIDDEN_ZONE_SIZE) {
+                && playerX > screenW - HIDDEN_ZONE_SIZE
+                && playerY > screenH - HIDDEN_ZONE_SIZE) {
+
                 hiddenEventTriggered = true;
+                eventsInteracted++;
+
                 speedBoostActive = true;
                 speedBoostTimer = SPEED_BOOST_DURATION;
+
                 Gdx.app.log("HiddenEvent", "Top-right event triggered");
             }
 
@@ -358,6 +378,21 @@ public class Main extends ApplicationAdapter {
             20,
             Gdx.graphics.getHeight() - 20
         );
+        // Display items used
+        font.draw(
+            batch,
+            "Items used: " + itemsUsed,
+            20,
+            Gdx.graphics.getHeight() - 60
+        );
+
+        // Display hidden events triggered
+        font.draw(
+            batch,
+            "Events triggered: " + eventsInteracted,
+            20,
+            Gdx.graphics.getHeight() - 100
+        );
 
         // Show a warning while the speed boost is active
         if (speedBoostActive) {
@@ -366,7 +401,7 @@ public class Main extends ApplicationAdapter {
                 batch,
                 "GEESE ENRAGED! " + (int) Math.ceil(speedBoostTimer) + "s",
                 20,
-                Gdx.graphics.getHeight() - 60
+                Gdx.graphics.getHeight() - 140
             );
             font.setColor(1, 1, 1, 1);
         }
@@ -454,14 +489,39 @@ public class Main extends ApplicationAdapter {
 
     }
 
-    // Handles collisions between the player and all four geese
+    // Handles collisions between the player and all geese
     private void checkGooseCollisions() {
-        // Handles collisions between the player and every goose
+
         for (Goose goose : geese) {
-            if (goose.collidesWith(playerX, playerY, playerRadius)) {
-                state = GameState.LOST;
-                Gdx.app.log("Game", "Hit " + goose.getMovementType() + " goose");
-                return;
+
+            if (goose.collidesWith(
+                playerX, playerY, playerRadius)) {
+
+                // Automatically activate the shield
+                if (inventory.hasShield()) {
+
+                    inventory.consumeShield();
+                    itemsUsed++;
+
+                    // Disperse the attacking goose
+                    goose.disperse();
+
+                    Gdx.app.log(
+                        "Inventory",
+                        "Shield blocked a goose attack!"
+                    );
+
+                } else {
+
+                    state = GameState.LOST;
+
+                    Gdx.app.log(
+                        "Game",
+                        "The geese caught you!"
+                    );
+
+                    return;
+                }
             }
         }
     }
@@ -589,6 +649,13 @@ public class Main extends ApplicationAdapter {
         speedBoostActive = false;
         speedBoostTimer = 0f;
 
+        // Reset inventory
+        inventory.reset();
+
+        // Reset statistics
+        itemsUsed = 0;
+        eventsInteracted = 0;
+
     }
 
     // Darken the screen and show a title with a hint
@@ -641,7 +708,11 @@ public class Main extends ApplicationAdapter {
             "ESC - pause / resume",
             "R - restart after winning or losing",
             "",
-            "Press I or ESC to go back"
+            "Press I or ESC to go back",
+            "",
+            "1 - Select bread",
+            "E - Use selected item",
+            "Shield - Automatically blocks one hit",
         };
 
         dimScreen(0.85f);

@@ -11,6 +11,7 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.Matrix4;
 import java.util.ArrayList;
+import java.util.Random;
 
 public class Main extends ApplicationAdapter {
 
@@ -24,7 +25,7 @@ public class Main extends ApplicationAdapter {
     private GameState state = GameState.PAUSED;
     private boolean started = false;
 
-    // Game statistics (tracking x thing used)
+    // Game statistics
     private int itemsUsed = 0;
     private int eventsInteracted = 0;
 
@@ -43,9 +44,27 @@ public class Main extends ApplicationAdapter {
     // All geese in the game
     private final ArrayList<Goose> geese = new ArrayList<>();
 
-    // Where each goose stands around the bread (repeats after every 4 geese)
-    private static final float[] BREAD_OFFSET_X = { -30f, 30f, 0f, 0f };
-    private static final float[] BREAD_OFFSET_Y = { 0f, 0f, 30f, -30f };
+    // Goose spawning system
+    private final Random random = new Random();
+    private float spawnTimer = 0f;
+
+    private static final int INITIAL_GOOSE_COUNT = 4;
+
+    // Starting spawn rate (0.5 = one goose every 2 seconds)
+    // Change to 0.05f after testing
+    private static final float BASE_SPAWN_RATE = 0.5f;
+
+    // Circle geese get progressively larger orbits
+    private float nextCircleRadius = 50f;
+
+    // Where each goose stands around the bread
+    private static final float[] BREAD_OFFSET_X = {
+        -30f, 30f, 0f, 0f
+    };
+
+    private static final float[] BREAD_OFFSET_Y = {
+        0f, 0f, 30f, -30f
+    };
 
     // Text layout
     private GlyphLayout layout;
@@ -72,6 +91,7 @@ public class Main extends ApplicationAdapter {
     // Goose speed boost (hidden event)
     private boolean speedBoostActive = false;
     private float speedBoostTimer = 0f;
+
     private static final float SPEED_BOOST_DURATION = 10f;
     private static final float SPEED_BOOST_MULTIPLIER = 1.75f;
 
@@ -83,12 +103,15 @@ public class Main extends ApplicationAdapter {
         normalGoose = new Texture(
             Gdx.files.internal("normal_goose.png")
         );
+
         flyingGoose = new Texture(
             Gdx.files.internal("flying_goose.png")
         );
+
         greyGoose = new Texture(
             Gdx.files.internal("grey_goose.png")
         );
+
         redBreastedGoose = new Texture(
             Gdx.files.internal("red_breasted_goose.png")
         );
@@ -102,23 +125,37 @@ public class Main extends ApplicationAdapter {
         font.getData().setScale(2f);
         layout = new GlyphLayout();
 
-        // Start the player in the center
+        // Start the player in the centre
         playerX = Gdx.graphics.getWidth() / 2f;
         playerY = Gdx.graphics.getHeight() / 2f;
 
-        // Create the four geese (same values as before)
-        geese.add(new Goose(normalGoose, MovementType.HORIZONTAL,
-                100f, 400f, 200f, 22f));
-        geese.add(new Goose(greyGoose, MovementType.VERTICAL,
-            400f, 100f, 150f, 22f));
-        geese.add(new Goose(flyingGoose, MovementType.DIAGONAL,
-            200f, 200f, 180f, 22f));
-        geese.add(new Goose(redBreastedGoose,
+        // Create the original four geese
+        geese.add(new Goose(
+            normalGoose,
+            MovementType.HORIZONTAL,
+            100f, 400f, 200f, 22f
+        ));
+
+        geese.add(new Goose(
+            greyGoose,
+            MovementType.VERTICAL,
+            400f, 100f, 150f, 22f
+        ));
+
+        geese.add(new Goose(
+            flyingGoose,
+            MovementType.DIAGONAL,
+            200f, 200f, 180f, 22f
+        ));
+
+        geese.add(new Goose(
+            redBreastedGoose,
             Gdx.graphics.getWidth() * 0.7f,
             Gdx.graphics.getHeight() * 0.5f,
             80f,
             1.5f,
-            22f));
+            22f
+        ));
 
         updateProjection();
     }
@@ -141,10 +178,135 @@ public class Main extends ApplicationAdapter {
         batch.setProjectionMatrix(cameraMatrix);
     }
 
+    // Calculate how many geese spawn per second
+    private float calculateSpawnRate() {
+
+        float elapsedMinutes = (GAME_DURATION - timeRemaining) / 60f;
+
+        return BASE_SPAWN_RATE
+            + (0.01f * elapsedMinutes)
+            + (0.005f * elapsedMinutes * elapsedMinutes);
+    }
+
+    // Check whether another goose should spawn
+    private void updateGooseSpawning(float delta) {
+
+        spawnTimer += delta;
+
+        float spawnRate = calculateSpawnRate();
+        float spawnInterval = 1f / spawnRate;
+
+        while (spawnTimer >= spawnInterval) {
+
+            spawnTimer -= spawnInterval;
+            spawnGoose();
+        }
+    }
+
+    // Create a new goose with a random movement pattern
+    private void spawnGoose() {
+
+        float width = Gdx.graphics.getWidth();
+        float height = Gdx.graphics.getHeight();
+
+        float radius = 22f;
+        float speed = 150f + random.nextFloat() * 70f;
+
+        int choice = random.nextInt(4);
+        Goose newGoose;
+
+        switch (choice) {
+
+            case 0: {
+                boolean fromLeft = random.nextBoolean();
+
+                newGoose = new Goose(
+                    normalGoose,
+                    MovementType.HORIZONTAL,
+                    fromLeft ? radius : width - radius,
+                    radius + random.nextFloat() * (height - radius * 2),
+                    speed,
+                    radius
+                );
+
+                newGoose.setDirection(fromLeft ? 1 : -1, 1);
+                break;
+            }
+
+            case 1: {
+                boolean fromBottom = random.nextBoolean();
+
+                newGoose = new Goose(
+                    greyGoose,
+                    MovementType.VERTICAL,
+                    radius + random.nextFloat() * (width - radius * 2),
+                    fromBottom ? radius : height - radius,
+                    speed,
+                    radius
+                );
+
+                newGoose.setDirection(1, fromBottom ? 1 : -1);
+                break;
+            }
+
+            case 2: {
+                boolean leftSide = random.nextBoolean();
+                boolean bottomSide = random.nextBoolean();
+
+                newGoose = new Goose(
+                    flyingGoose,
+                    MovementType.DIAGONAL,
+                    leftSide ? radius : width - radius,
+                    bottomSide ? radius : height - radius,
+                    speed,
+                    radius
+                );
+
+                newGoose.setDirection(
+                    leftSide ? 1 : -1,
+                    bottomSide ? 1 : -1
+                );
+
+                break;
+            }
+
+            default: {
+                float centerX = width * (0.3f + random.nextFloat() * 0.4f);
+                float centerY = height * (0.3f + random.nextFloat() * 0.4f);
+
+                float orbitRadius = nextCircleRadius;
+                nextCircleRadius += 15f;
+
+                float angularSpeed = 0.8f + random.nextFloat() * 1.2f;
+
+                newGoose = new Goose(
+                    redBreastedGoose,
+                    centerX,
+                    centerY,
+                    orbitRadius,
+                    angularSpeed,
+                    radius
+                );
+
+                newGoose.setCircleAngle(
+                    random.nextFloat() * (float) (Math.PI * 2)
+                );
+
+                break;
+            }
+        }
+
+        geese.add(newGoose);
+
+        Gdx.app.log(
+            "GooseSpawner",
+            "New goose spawned! Total geese: " + geese.size()
+        );
+    }
+
     @Override
     public void resize(int width, int height) {
 
-        // Avoid updating the projection when minimised
         if (width == 0 || height == 0) {
             return;
         }
@@ -155,17 +317,14 @@ public class Main extends ApplicationAdapter {
     @Override
     public void render() {
 
-        // Skip the frame if the window is minimised
         if (Gdx.graphics.getWidth() == 0
             || Gdx.graphics.getHeight() == 0) {
             return;
         }
 
-        // Makes the screen black
         Gdx.gl.glClearColor(0, 0, 0, 1);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
-        // Calculate movement based on time
         float delta = Gdx.graphics.getDeltaTime();
 
         // Countdown timer only while the game is running
@@ -199,21 +358,9 @@ public class Main extends ApplicationAdapter {
 
                 itemsUsed++;
 
-                // Record where the bread was thrown
                 breadX = playerX;
                 breadY = playerY;
 
-                // Activate the bread distraction
-                breadActive = true;
-                breadTimer = BREAD_DURATION;
-
-                Gdx.app.log("Inventory", "Threw bread!");
-
-                // Record where the bread was thrown
-                breadX = playerX;
-                breadY = playerY;
-
-                // Activate the bread distraction
                 breadActive = true;
                 breadTimer = BREAD_DURATION;
 
@@ -221,7 +368,7 @@ public class Main extends ApplicationAdapter {
             }
         }
 
-        // SPACE starts the game from the start screen
+        // SPACE starts the game
         if (!started
             && state == GameState.PAUSED
             && Gdx.input.isKeyJustPressed(Input.Keys.SPACE)) {
@@ -230,14 +377,14 @@ public class Main extends ApplicationAdapter {
             state = GameState.RUNNING;
         }
 
-        // ESC pauses and resumes once the game has started
+        // ESC pauses and resumes
         if (started
             && Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
 
             togglePause();
         }
 
-        // It displays instructions from the start/pause screens
+        // Instructions screen
         if (state == GameState.PAUSED
             && Gdx.input.isKeyJustPressed(Input.Keys.I)) {
 
@@ -250,7 +397,7 @@ public class Main extends ApplicationAdapter {
             state = GameState.PAUSED;
         }
 
-        // R restarts the game after a win or loss
+        // R restarts after winning or losing
         if ((state == GameState.WON || state == GameState.LOST)
             && Gdx.input.isKeyJustPressed(Input.Keys.R)) {
 
@@ -278,16 +425,17 @@ public class Main extends ApplicationAdapter {
                 playerX += movement;
             }
 
-            // Move all four geese
+            // Spawn additional geese
+            updateGooseSpawning(delta);
+
+            // Move all geese
             updateGooseMovement(delta);
 
-            // Check collisions with all four geese
+            // Check collisions with all geese
             checkGooseCollisions();
 
-            // Check game state again to prevent a win
-            // from overriding a loss in the same frame
-            if (state == GameState.RUNNING
-                && timeRemaining <= 0) {
+            // Check for a win
+            if (state == GameState.RUNNING && timeRemaining <= 0) {
 
                 state = GameState.WON;
                 Gdx.app.log("Game", "Survived - You Win");
@@ -309,9 +457,11 @@ public class Main extends ApplicationAdapter {
                     Gdx.graphics.getHeight() - playerRadius
                 )
             );
+
             float screenW = Gdx.graphics.getWidth();
             float screenH = Gdx.graphics.getHeight();
 
+            // Hidden event in the top-right corner
             if (!hiddenEventTriggered
                 && playerX > screenW - HIDDEN_ZONE_SIZE
                 && playerY > screenH - HIDDEN_ZONE_SIZE) {
@@ -324,25 +474,27 @@ public class Main extends ApplicationAdapter {
 
                 Gdx.app.log("HiddenEvent", "Top-right event triggered");
             }
-
         }
+
         // Draw the hidden event
         if (hiddenEventTriggered) {
+
             shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
             shapeRenderer.setColor(0, 0, 1, 1);
+
             shapeRenderer.rect(
                 Gdx.graphics.getWidth() - HIDDEN_ZONE_SIZE,
                 Gdx.graphics.getHeight() - HIDDEN_ZONE_SIZE,
                 HIDDEN_ZONE_SIZE,
                 HIDDEN_ZONE_SIZE
             );
+
             shapeRenderer.end();
         }
 
         // Draw player
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
 
-        // Player turns blue after losing
         if (state == GameState.LOST) {
             shapeRenderer.setColor(0, 0, 1, 1);
         } else {
@@ -350,18 +502,15 @@ public class Main extends ApplicationAdapter {
         }
 
         shapeRenderer.circle(playerX, playerY, playerRadius);
-
         shapeRenderer.end();
 
         // Draw geese and timer
         batch.begin();
 
-        // Draw every goose
         for (Goose goose : geese) {
             goose.draw(batch);
         }
 
-        // Draw timer, rounding up partial seconds
         int displayedTime = (int) Math.ceil(timeRemaining);
         int minutes = displayedTime / 60;
         int seconds = displayedTime % 60;
@@ -378,7 +527,7 @@ public class Main extends ApplicationAdapter {
             20,
             Gdx.graphics.getHeight() - 20
         );
-        // Display items used
+
         font.draw(
             batch,
             "Items used: " + itemsUsed,
@@ -386,7 +535,6 @@ public class Main extends ApplicationAdapter {
             Gdx.graphics.getHeight() - 60
         );
 
-        // Display hidden events triggered
         font.draw(
             batch,
             "Events triggered: " + eventsInteracted,
@@ -394,21 +542,23 @@ public class Main extends ApplicationAdapter {
             Gdx.graphics.getHeight() - 100
         );
 
-        // Show a warning while the speed boost is active
         if (speedBoostActive) {
+
             font.setColor(1, 0.3f, 0.3f, 1);
+
             font.draw(
                 batch,
                 "GEESE ENRAGED! " + (int) Math.ceil(speedBoostTimer) + "s",
                 20,
                 Gdx.graphics.getHeight() - 140
             );
+
             font.setColor(1, 1, 1, 1);
         }
 
         batch.end();
 
-        // Draw the start or pause screen
+        // Draw start or pause screen
         if (state == GameState.PAUSED) {
 
             if (started) {
@@ -424,7 +574,7 @@ public class Main extends ApplicationAdapter {
             }
         }
 
-        // Draw instructions screen
+        // Draw instructions
         if (state == GameState.INSTRUCTIONS) {
             drawInstructions();
         }
@@ -436,26 +586,30 @@ public class Main extends ApplicationAdapter {
         } else if (state == GameState.WON) {
             drawOverlay("YOU WIN!", "Press R to restart");
         }
-        // Draw the inventory hotbar
+
+        // Draw inventory hotbar
         if (started) {
             drawHotbar();
         }
-
     }
 
-    // Handles the movement of all four geese
+
+    // Handles movement of all geese
     private void updateGooseMovement(float realDelta) {
 
-        // Update the bread distraction timer
+        // Update bread distraction timer
         if (breadActive) {
+
             breadTimer -= realDelta;
 
             if (breadTimer <= 0) {
                 breadActive = false;
             }
         }
-        // Update the speed boost timer (real time)
+
+        // Update speed boost timer
         if (speedBoostActive) {
+
             speedBoostTimer -= realDelta;
 
             if (speedBoostTimer <= 0) {
@@ -463,7 +617,7 @@ public class Main extends ApplicationAdapter {
             }
         }
 
-        // Geese move faster while the boost is active
+        // Geese move faster during the boost
         float delta = speedBoostActive
             ? realDelta * SPEED_BOOST_MULTIPLIER
             : realDelta;
@@ -474,22 +628,22 @@ public class Main extends ApplicationAdapter {
             Goose goose = geese.get(i);
 
             if (breadActive) {
-                // Walk towards the bread, each goose to its own spot
+
                 goose.moveTowards(
                     breadX + BREAD_OFFSET_X[i % 4],
                     breadY + BREAD_OFFSET_Y[i % 4],
                     BREAD_SPEED * delta
                 );
 
-            }else{
-                // Normal Movement pattern
+            } else {
+
                 goose.update(delta);
             }
         }
-
     }
 
-    // Handles collisions between the player and all geese
+
+    // Handles collisions between player and all geese
     private void checkGooseCollisions() {
 
         for (Goose goose : geese) {
@@ -497,13 +651,12 @@ public class Main extends ApplicationAdapter {
             if (goose.collidesWith(
                 playerX, playerY, playerRadius)) {
 
-                // Automatically activate the shield
+                // Automatically activate shield
                 if (inventory.hasShield()) {
 
                     inventory.consumeShield();
                     itemsUsed++;
 
-                    // Disperse the attacking goose
                     goose.disperse();
 
                     Gdx.app.log(
@@ -526,7 +679,8 @@ public class Main extends ApplicationAdapter {
         }
     }
 
-    // Draw the inventory hotbar
+
+    // Draw inventory hotbar
     private void drawHotbar() {
 
         float slotSize = 55f;
@@ -537,7 +691,7 @@ public class Main extends ApplicationAdapter {
         float startX = (Gdx.graphics.getWidth() - totalWidth) / 2f;
         float startY = 15f;
 
-        // Draw the slot backgrounds
+        // Draw slot backgrounds
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
 
         for (int i = 0; i < 9; i++) {
@@ -556,7 +710,7 @@ public class Main extends ApplicationAdapter {
 
         shapeRenderer.end();
 
-        // Highlight the selected slot
+        // Highlight selected slot
         shapeRenderer.begin(ShapeRenderer.ShapeType.Line);
 
         shapeRenderer.setColor(1f, 0.85f, 0f, 1f);
@@ -582,7 +736,6 @@ public class Main extends ApplicationAdapter {
 
             float x = startX + i * (slotSize + gap);
 
-            // Slot number
             font.draw(
                 batch,
                 String.valueOf(i + 1),
@@ -590,7 +743,6 @@ public class Main extends ApplicationAdapter {
                 startY + slotSize - 5
             );
 
-            // Item abbreviation
             String item = inventory.getItem(i);
 
             if (item.equals("Bread")) {
@@ -600,8 +752,8 @@ public class Main extends ApplicationAdapter {
                 font.draw(batch, "S", x + 25, startY + 32);
             }
 
-            // Item quantity
             if (inventory.getQuantity(i) > 0) {
+
                 font.draw(
                     batch,
                     "x" + inventory.getQuantity(i),
@@ -616,6 +768,7 @@ public class Main extends ApplicationAdapter {
         batch.end();
     }
 
+
     // Switch between RUNNING and PAUSED
     private void togglePause() {
 
@@ -627,7 +780,8 @@ public class Main extends ApplicationAdapter {
         }
     }
 
-    // Reset the timer, player and geese
+
+    // Reset timer, player and geese
     private void resetGame() {
 
         timeRemaining = GAME_DURATION;
@@ -635,16 +789,25 @@ public class Main extends ApplicationAdapter {
         playerX = Gdx.graphics.getWidth() / 2f;
         playerY = Gdx.graphics.getHeight() / 2f;
 
-       // Reset every goose
+        // Remove all additional geese
+        while (geese.size() > INITIAL_GOOSE_COUNT) {
+            geese.remove(geese.size() - 1);
+        }
+
+        // Reset original four geese
         for (Goose goose : geese) {
             goose.reset();
         }
+
+        // Reset spawning system
+        spawnTimer = 0f;
+        nextCircleRadius = 50f;
 
         // Reset bread
         breadActive = false;
         breadTimer = 0f;
 
-        // Reset HiddenEvent
+        // Reset hidden event
         hiddenEventTriggered = false;
         speedBoostActive = false;
         speedBoostTimer = 0f;
@@ -655,10 +818,10 @@ public class Main extends ApplicationAdapter {
         // Reset statistics
         itemsUsed = 0;
         eventsInteracted = 0;
-
     }
 
-    // Darken the screen and show a title with a hint
+
+    // Darken screen and show a title with a hint
     private void drawOverlay(String title, String hint) {
 
         float width = Gdx.graphics.getWidth();
@@ -691,7 +854,8 @@ public class Main extends ApplicationAdapter {
         batch.end();
     }
 
-    // Darken the screen and show game instructions
+
+    // Darken screen and show instructions
     private void drawInstructions() {
 
         float width = Gdx.graphics.getWidth();
@@ -712,7 +876,7 @@ public class Main extends ApplicationAdapter {
             "",
             "1 - Select bread",
             "E - Use selected item",
-            "Shield - Automatically blocks one hit",
+            "Shield - Automatically blocks one hit"
         };
 
         dimScreen(0.85f);
@@ -743,7 +907,7 @@ public class Main extends ApplicationAdapter {
         batch.end();
     }
 
-    // Darken the screen behind an overlay
+    // Darken screen behind an overlay
     private void dimScreen(float alpha) {
 
         Gdx.gl.glEnable(GL20.GL_BLEND);
@@ -766,7 +930,6 @@ public class Main extends ApplicationAdapter {
     @Override
     public void pause() {
 
-        // Pause automatically if the window loses focus or is minimised
         if (state == GameState.RUNNING) {
             state = GameState.PAUSED;
         }

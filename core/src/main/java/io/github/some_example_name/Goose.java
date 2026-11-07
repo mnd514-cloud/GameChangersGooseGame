@@ -192,4 +192,19 @@ public class Goose {
         state = GooseState.DISPERSED;
     }
 
+    // Set the direction of a newly spawned goose
+    public void setDirection(int xDirection, int yDirection) {
+        this.xDirection = xDirection;
+        this.yDirection = yDirection;
+    }
+
+    // Give circle geese a different starting angle
+    public void setCircleAngle(float angle) {
+        this.angle = angle;
+
+        if (movementType == MovementType.CIRCLE) {
+            x = centerX + orbitRadius * (float) Math.cos(angle);
+            y = centerY + orbitRadius * (float) Math.sin(angle);
+        }
+    }
 }

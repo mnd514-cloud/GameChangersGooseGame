@@ -74,9 +74,11 @@ public class Main extends ApplicationAdapter {
     private float breadY;
     private float breadTimer = 0f;
 
-    private static final float BREAD_DURATION = 10f;
+    private static final float BREAD_DURATION = 5f;
     private static final float BREAD_SPEED = 250f;
-    private static final float BREAD_RING_RADIUS = 30f;
+    private static final float BREAD_RING_BASE = 20f;
+    private static final float BREAD_RING_PER_GOOSE = 8f;
+    private static final float BREAD_RING_MAX = 200f;
 
     // Hidden event
     private boolean hiddenEventTriggered = false;
@@ -430,8 +432,10 @@ public class Main extends ApplicationAdapter {
             // Move all geese
             updateGooseMovement(delta);
 
-            // Check collisions with all geese
-            checkGooseCollisions();
+            // Check collisions with all geese, ignoring collisions when bread is active
+            if (!breadActive) {
+                checkGooseCollisions();
+            }
 
             // Check for a win
             if (state == GameState.RUNNING && timeRemaining <= 0) {
@@ -620,6 +624,12 @@ public class Main extends ApplicationAdapter {
             ? realDelta * SPEED_BOOST_MULTIPLIER
             : realDelta;
 
+        // scaling size of geese circle surrounding bread with number of geese
+        float ringRadius = Math.min(
+            BREAD_RING_BASE + geese.size() * BREAD_RING_PER_GOOSE,
+            BREAD_RING_MAX
+        );
+
         // Move every goose
         for (int i = 0; i < geese.size(); i++) {
 
@@ -629,13 +639,12 @@ public class Main extends ApplicationAdapter {
                 /*
                  different logic to make geese surround the bread
                  instead of piling up in one spot.
-                 visually they still overlap though. will be fixed later.
                 */
                 float angle = (float) (2 * Math.PI * i / geese.size());
 
                 goose.moveTowards(
-                    breadX + BREAD_RING_RADIUS * (float) Math.cos(angle),
-                    breadY + BREAD_RING_RADIUS * (float) Math.sin(angle),
+                    breadX + ringRadius * (float) Math.cos(angle),
+                    breadY + ringRadius * (float) Math.sin(angle),
                     BREAD_SPEED * delta
                 );
 
@@ -879,7 +888,7 @@ public class Main extends ApplicationAdapter {
             "R - restart after winning or losing",
             "",
             "ITEMS",
-            "Bread - lures all geese to you for 10 seconds",
+            "Bread - lures all geese to you for 5 seconds",
             "Shield - automatically blocks one hit",
             "",
             "Press I or ESC to go back"

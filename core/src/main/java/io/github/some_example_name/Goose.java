@@ -36,6 +36,9 @@ public class Goose {
     // What the goose is currently doing
     private GooseState state = GooseState.NORMAL;
 
+    private boolean returning = false;
+    private static final float RETURN_SPEED = 100f;
+
     // Constructor for HORIZONTAL, VERTICAL AND DIAGONAL Geese
     public Goose(Texture texture, MovementType movementType,
                  float x, float y, float speed, float radius){
@@ -97,13 +100,27 @@ public class Goose {
                 break;
 
             case CIRCLE:
-                angle += speed * delta;
-                x = centerX + orbitRadius * (float) Math.cos(angle);
-                y = centerY + orbitRadius * (float) Math.sin(angle);
+                if (returning) {
+                    // calculating target coords circle geese need to return to
+                    float targetX = centerX + orbitRadius * (float) Math.cos(angle);
+                    float targetY = centerY + orbitRadius * (float) Math.sin(angle);
+
+                    moveTowards(targetX, targetY, RETURN_SPEED * delta);
+
+                    float dx = targetX - x;
+                    float dy = targetY - y;
+                    if (dx * dx + dy * dy < 4f) {
+                        returning = false;
+                    }
+                } else {
+                    angle += speed * delta;
+                    x = centerX + orbitRadius * (float) Math.cos(angle);
+                    y = centerY + orbitRadius * (float) Math.sin(angle);
+                }
                 break;
         }
     }
-    // Reverse direction ate the left/right edges
+    // Reverse direction at the left/right edges
     private void bounceX(float width) {
         if (x + radius >= width) {
             xDirection = -1;
@@ -178,6 +195,7 @@ public class Goose {
         yDirection = 1;
         angle = 0f;
         state = GooseState.NORMAL;
+        returning = false;
     }
 
     // Getters
@@ -190,6 +208,11 @@ public class Goose {
     // Disperse the goose
     public void disperse() {
         state = GooseState.DISPERSED;
+    }
+
+    // called when bread wears off so circle geese glide back to their orbit
+    public void startReturning() {
+        returning = true;
     }
 
     // Set the direction of a newly spawned goose

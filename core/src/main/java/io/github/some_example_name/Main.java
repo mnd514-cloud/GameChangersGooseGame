@@ -57,7 +57,7 @@ public class Main extends ApplicationAdapter {
     // Circle geese get progressively larger orbits
     private float nextCircleRadius = 50f;
 
-    private static final float MAX_CIRCLE_RADIUS = 300F;
+    private static final float MAX_CIRCLE_RADIUS = 300f;
 
     // Text layout
     private GlyphLayout layout;
@@ -273,10 +273,13 @@ public class Main extends ApplicationAdapter {
                 float orbitRadius = nextCircleRadius;
                 nextCircleRadius += 15f;
 
-                // ensures geese orbit does not become larger than the window
+                // ensures the entire orbit path remains inside window
                 if (nextCircleRadius > MAX_CIRCLE_RADIUS) {
                     nextCircleRadius = 50f;
                 }
+                float margin = orbitRadius + radius;
+                centerX = Math.max(margin, Math.min(width - margin, centerX));
+                centerY = Math.max(margin, Math.min(height - margin, centerY));
 
                 float angularSpeed = 0.8f + random.nextFloat() * 1.2f;
 
@@ -606,6 +609,9 @@ public class Main extends ApplicationAdapter {
 
             if (breadTimer <= 0) {
                 breadActive = false;
+                for (Goose goose : geese) {
+                    goose.startReturning();
+                }
             }
         }
 

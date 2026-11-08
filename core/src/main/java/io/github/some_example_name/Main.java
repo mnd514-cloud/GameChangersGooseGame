@@ -57,14 +57,7 @@ public class Main extends ApplicationAdapter {
     // Circle geese get progressively larger orbits
     private float nextCircleRadius = 50f;
 
-    // Where each goose stands around the bread
-    private static final float[] BREAD_OFFSET_X = {
-        -30f, 30f, 0f, 0f
-    };
-
-    private static final float[] BREAD_OFFSET_Y = {
-        0f, 0f, 30f, -30f
-    };
+    private static final float MAX_CIRCLE_RADIUS = 300F;
 
     // Text layout
     private GlyphLayout layout;
@@ -83,6 +76,7 @@ public class Main extends ApplicationAdapter {
 
     private static final float BREAD_DURATION = 10f;
     private static final float BREAD_SPEED = 250f;
+    private static final float BREAD_RING_RADIUS = 30f;
 
     // Hidden event
     private boolean hiddenEventTriggered = false;
@@ -276,6 +270,11 @@ public class Main extends ApplicationAdapter {
 
                 float orbitRadius = nextCircleRadius;
                 nextCircleRadius += 15f;
+
+                // ensures geese orbit does not become larger than the window
+                if (nextCircleRadius > MAX_CIRCLE_RADIUS) {
+                    nextCircleRadius = 50f;
+                }
 
                 float angularSpeed = 0.8f + random.nextFloat() * 1.2f;
 
@@ -599,7 +598,6 @@ public class Main extends ApplicationAdapter {
 
         // Update bread distraction timer
         if (breadActive) {
-
             breadTimer -= realDelta;
 
             if (breadTimer <= 0) {
@@ -628,10 +626,16 @@ public class Main extends ApplicationAdapter {
             Goose goose = geese.get(i);
 
             if (breadActive) {
+                /*
+                 different logic to make geese surround the bread
+                 instead of piling up in one spot.
+                 visually they still overlap though. will be fixed later.
+                */
+                float angle = (float) (2 * Math.PI * i / geese.size());
 
                 goose.moveTowards(
-                    breadX + BREAD_OFFSET_X[i % 4],
-                    breadY + BREAD_OFFSET_Y[i % 4],
+                    breadX + BREAD_RING_RADIUS * (float) Math.cos(angle),
+                    breadY + BREAD_RING_RADIUS * (float) Math.sin(angle),
                     BREAD_SPEED * delta
                 );
 
@@ -869,14 +873,16 @@ public class Main extends ApplicationAdapter {
             "",
             "CONTROLS",
             "W A S D - move",
+            "1 / 2 - select bread / shield",
+            "E - use selected item",
             "ESC - pause / resume",
             "R - restart after winning or losing",
             "",
-            "Press I or ESC to go back",
+            "ITEMS",
+            "Bread - lures all geese to you for 10 seconds",
+            "Shield - automatically blocks one hit",
             "",
-            "1 - Select bread",
-            "E - Use selected item",
-            "Shield - Automatically blocks one hit"
+            "Press I or ESC to go back"
         };
 
         dimScreen(0.85f);

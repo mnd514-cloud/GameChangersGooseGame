@@ -273,11 +273,12 @@ public class Main extends ApplicationAdapter {
                 float orbitRadius = nextCircleRadius;
                 nextCircleRadius += 15f;
 
-                // ensures the entire orbit path remains inside window
+                // wrap the orbit radius back to the minimum once it passes the cap
                 if (nextCircleRadius > MAX_CIRCLE_RADIUS) {
                     nextCircleRadius = 50f;
                 }
                 float margin = orbitRadius + radius;
+                // clamp the centre so the whole orbit stays inside the window
                 centerX = Math.max(margin, Math.min(width - margin, centerX));
                 centerY = Math.max(margin, Math.min(height - margin, centerY));
 
@@ -435,10 +436,8 @@ public class Main extends ApplicationAdapter {
             // Move all geese
             updateGooseMovement(delta);
 
-            // Check collisions with all geese, ignoring collisions when bread is active
-            if (!breadActive) {
-                checkGooseCollisions();
-            }
+            // Check collisions with all geese
+            checkGooseCollisions();
 
             // Check for a win
             if (state == GameState.RUNNING && timeRemaining <= 0) {
@@ -610,7 +609,7 @@ public class Main extends ApplicationAdapter {
             if (breadTimer <= 0) {
                 breadActive = false;
                 for (Goose goose : geese) {
-                    goose.startReturning();
+                    goose.stopFleeing();
                 }
             }
         }
@@ -648,7 +647,7 @@ public class Main extends ApplicationAdapter {
                 */
                 float angle = (float) (2 * Math.PI * i / geese.size());
 
-                goose.moveTowards(
+                goose.lureTowards(
                     breadX + ringRadius * (float) Math.cos(angle),
                     breadY + ringRadius * (float) Math.sin(angle),
                     BREAD_SPEED * delta

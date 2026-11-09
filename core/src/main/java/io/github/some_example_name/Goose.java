@@ -3,6 +3,7 @@ package io.github.some_example_name;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.math.MathUtils;
 
 
 public class Goose {
@@ -37,6 +38,10 @@ public class Goose {
     private GooseState state = GooseState.NORMAL;
 
     private static final float RETURN_SPEED = 100f;
+
+    // how far in pixels a circle goose may be from its orbit point
+    // before it glides back
+    private static final float ORBIT_TOLERANCE = 2f;
 
     // Constructor for HORIZONTAL, VERTICAL AND DIAGONAL Geese
     public Goose(Texture texture, MovementType movementType,
@@ -100,22 +105,30 @@ public class Goose {
 
             case CIRCLE:
                 // where goose should be on its orbit at this moment
-                float targetX = centerX + orbitRadius * (float) Math.cos(angle);
-                float targetY = centerY + orbitRadius * (float) Math.sin(angle);
+                float targetX = orbitX(angle);
+                float targetY = orbitY(angle);
 
                 float dx = targetX - x;
                 float dy = targetY - y;
 
-                if (dx * dx + dy * dy > 4f) {
+                if (dx * dx + dy * dy > ORBIT_TOLERANCE * ORBIT_TOLERANCE) {
                     // off orbit, goose glides back with its angle frozen
                     moveTowards(targetX, targetY, RETURN_SPEED * delta);
                 } else {
                     angle += speed * delta;
-                    x = centerX + orbitRadius * (float) Math.cos(angle);
-                    y = centerY + orbitRadius * (float) Math.sin(angle);
+                    x = orbitX(angle);
+                    y = orbitY(angle);
                 }
                 break;
         }
+    }
+
+    private float orbitX(float angle) {
+        return centerX + orbitRadius * (float) Math.cos(angle);
+    }
+
+    private float orbitY(float angle) {
+        return centerY + orbitRadius * (float) Math.sin(angle);
     }
 
     // flips direction at either window edge: -1 at right/ top, 1 at left/ bottom
@@ -136,14 +149,7 @@ public class Goose {
     }
 
     private float stepTowards(float current, float target, float maxStep) {
-        if (Math.abs(target - current) <= maxStep) {
-            return target;
-        }
-        if (current < target) {
-            return current + maxStep;
-        }else{
-            return current - maxStep;
-        }
+        return current + MathUtils.clamp(target - current, -maxStep, maxStep);
     }
 
     // Draw the goose (Dispersed geese are invisible)
@@ -225,8 +231,8 @@ public class Goose {
         this.angle = angle;
 
         if (movementType == MovementType.CIRCLE) {
-            x = centerX + orbitRadius * (float) Math.cos(angle);
-            y = centerY + orbitRadius * (float) Math.sin(angle);
+            x = orbitX(angle);
+            y = orbitY(angle);
         }
     }
 }

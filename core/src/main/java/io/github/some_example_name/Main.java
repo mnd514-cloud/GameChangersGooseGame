@@ -9,6 +9,7 @@ import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.GlyphLayout;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
+import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Matrix4;
 import java.util.ArrayList;
 import java.util.Random;
@@ -20,6 +21,10 @@ public class Main extends ApplicationAdapter {
 
     private static final float GAME_DURATION = 300f;
     private float timeRemaining = GAME_DURATION;
+
+    // longest frame the game will simulate, stops teleporting
+    // after a window drag or lag spike
+    private static final float MAX_FRAME_TIME = 0.05f;
 
     // Game state
     private GameState state = GameState.PAUSED;
@@ -54,10 +59,20 @@ public class Main extends ApplicationAdapter {
     // Change to 0.05f after testing
     private static final float BASE_SPAWN_RATE = 0.5f;
 
-    // Circle geese get progressively larger orbits
-    private float nextCircleRadius = 50f;
-
+    // goose spawning tuning
+    private static final float GOOSE_RADIUS = 22f;
+    private static final float MIN_GOOSE_SPEED = 150f;
+    private static final float GOOSE_SPEED_VARIATION = 70f;
+    private static final float MIN_CIRCLE_RADIUS = 50f;
+    private static final float CIRCLE_RADIUS_STEP = 15f;
+    private static final float CIRCLE_CENTRE_MIN = 0.3f;
+    private static final float CIRCLE_CENTRE_RANGE = 0.4f;
+    private static final float MIN_ANGULAR_SPEED = 0.8f;
+    private static final float ANGULAR_SPEED_VARIATION = 1.2f;
     private static final float MAX_CIRCLE_RADIUS = 300f;
+
+    // Circle geese get progressively larger orbits
+    private float nextCircleRadius = MIN_CIRCLE_RADIUS;
 
     // Text layout
     private GlyphLayout layout;
@@ -129,19 +144,19 @@ public class Main extends ApplicationAdapter {
         geese.add(new Goose(
             normalGoose,
             MovementType.HORIZONTAL,
-            100f, 400f, 200f, 22f
+            100f, 400f, 200f, GOOSE_RADIUS
         ));
 
         geese.add(new Goose(
             greyGoose,
             MovementType.VERTICAL,
-            400f, 100f, 150f, 22f
+            400f, 100f, 150f, GOOSE_RADIUS
         ));
 
         geese.add(new Goose(
             flyingGoose,
             MovementType.DIAGONAL,
-            200f, 200f, 180f, 22f
+            200f, 200f, 180f, GOOSE_RADIUS
         ));
 
         geese.add(new Goose(
@@ -150,7 +165,7 @@ public class Main extends ApplicationAdapter {
             Gdx.graphics.getHeight() * 0.5f,
             80f,
             1.5f,
-            22f
+            GOOSE_RADIUS
         ));
 
         updateProjection();
@@ -205,8 +220,8 @@ public class Main extends ApplicationAdapter {
         float width = Gdx.graphics.getWidth();
         float height = Gdx.graphics.getHeight();
 
-        float radius = 22f;
-        float speed = 150f + random.nextFloat() * 70f;
+        float radius = GOOSE_RADIUS;
+        float speed = MIN_GOOSE_SPEED + random.nextFloat() * GOOSE_SPEED_VARIATION;
 
         int choice = random.nextInt(4);
         Goose newGoose;
@@ -267,22 +282,22 @@ public class Main extends ApplicationAdapter {
             }
 
             default: {
-                float centerX = width * (0.3f + random.nextFloat() * 0.4f);
-                float centerY = height * (0.3f + random.nextFloat() * 0.4f);
+                float centerX = width * (CIRCLE_CENTRE_MIN + random.nextFloat() * CIRCLE_CENTRE_RANGE);
+                float centerY = height * (CIRCLE_CENTRE_MIN + random.nextFloat() * CIRCLE_CENTRE_RANGE);
 
                 float orbitRadius = nextCircleRadius;
-                nextCircleRadius += 15f;
+                nextCircleRadius += CIRCLE_RADIUS_STEP;
 
                 // wrap the orbit radius back to the minimum once it passes the cap
                 if (nextCircleRadius > MAX_CIRCLE_RADIUS) {
-                    nextCircleRadius = 50f;
+                    nextCircleRadius = MIN_CIRCLE_RADIUS;
                 }
                 float margin = orbitRadius + radius;
                 // clamp the centre so the whole orbit stays inside the window
-                centerX = Math.max(margin, Math.min(width - margin, centerX));
-                centerY = Math.max(margin, Math.min(height - margin, centerY));
+                centerX = MathUtils.clamp(centerX, margin, width - margin);
+                centerY = MathUtils.clamp(centerY, margin, height - margin);
 
-                float angularSpeed = 0.8f + random.nextFloat() * 1.2f;
+                float angularSpeed = MIN_ANGULAR_SPEED + random.nextFloat() * ANGULAR_SPEED_VARIATION;
 
                 newGoose = new Goose(
                     redBreastedGoose,
@@ -330,7 +345,7 @@ public class Main extends ApplicationAdapter {
         Gdx.gl.glClearColor(0, 0, 0, 1);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
-        float delta = Gdx.graphics.getDeltaTime();
+        float delta = Math.min(Gdx.graphics.getDeltaTime(), MAX_FRAME_TIME);
 
         // Countdown timer only while the game is running
         if (state == GameState.RUNNING) {
@@ -446,25 +461,21 @@ public class Main extends ApplicationAdapter {
                 Gdx.app.log("Game", "Survived - You Win");
             }
 
-            // Keep player inside the window
-            playerX = Math.max(
-                playerRadius,
-                Math.min(
-                    playerX,
-                    Gdx.graphics.getWidth() - playerRadius
-                )
-            );
-
-            playerY = Math.max(
-                playerRadius,
-                Math.min(
-                    playerY,
-                    Gdx.graphics.getHeight() - playerRadius
-                )
-            );
-
             float screenW = Gdx.graphics.getWidth();
             float screenH = Gdx.graphics.getHeight();
+
+            // Keep player inside the window
+            playerX = MathUtils.clamp(
+                    playerX,
+                    playerRadius,
+                    screenW - playerRadius
+            );
+
+            playerY = MathUtils.clamp(
+                    playerY,
+                    playerRadius,
+                    screenH - playerRadius
+            );
 
             // Hidden event in the top-right corner
             if (!hiddenEventTriggered
@@ -819,7 +830,7 @@ public class Main extends ApplicationAdapter {
 
         // Reset spawning system
         spawnTimer = 0f;
-        nextCircleRadius = 50f;
+        nextCircleRadius = MIN_CIRCLE_RADIUS;
 
         // Reset bread
         breadActive = false;

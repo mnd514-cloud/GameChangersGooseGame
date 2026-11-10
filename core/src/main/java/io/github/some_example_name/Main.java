@@ -4,6 +4,7 @@ import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.graphics.GL20;
+import com.badlogic.gdx.graphics.Cursor;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.GlyphLayout;
@@ -28,6 +29,9 @@ public class Main extends ApplicationAdapter {
     // Game state
     private GameState state = GameState.PAUSED;
     private boolean started = false;
+
+    // Tracks whether the mouse pointer is currently hidden.
+    private boolean cursorHidden = false;
 
     // Game statistics
     private int itemsUsed = 0;
@@ -85,6 +89,10 @@ public class Main extends ApplicationAdapter {
     private float playerSpeed = 300f;
     private float playerRadius = 15f;
 
+    // Brief collision grace period after the shield blocks a hit.
+    private static final float SHIELD_GRACE_DURATION = 0.75f;
+    private float shieldGraceTimer = 0f;
+
     // Geese attracted to bread
     private boolean breadActive = false;
     private float breadX;
@@ -113,8 +121,8 @@ public class Main extends ApplicationAdapter {
 
         inventory = new Inventory();
 
-        // Hide and capture the mouse cursor; movement uses WASD.
-        Gdx.input.setCursorCatched(true);
+        // Make sure the mouse is visible on the start screen.
+        Gdx.graphics.setSystemCursor(Cursor.SystemCursor.Arrow);
 
         normalGoose = new Texture(
             Gdx.files.internal("normal_goose.png")
@@ -370,14 +378,19 @@ public class Main extends ApplicationAdapter {
         Gdx.gl.glClearColor(0, 0, 0, 1);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
-        float delta = Math.min(Gdx.graphics.getDeltaTime(), MAX_FRAME_TIME);
+        float realDelta = Gdx.graphics.getDeltaTime();
+        float delta = Math.min(realDelta, MAX_FRAME_TIME);
 
-        // Countdown timer only while the game is running.
+        // Countdown uses real elapsed time; movement uses the capped delta.
         if (state == GameState.RUNNING) {
             timeRemaining = Math.max(
                 0f,
-                timeRemaining - delta
+                timeRemaining - realDelta
             );
+
+            if (shieldGraceTimer > 0f) {
+                shieldGraceTimer = Math.max(0f, shieldGraceTimer - realDelta);
+            }
         }
 
         float movement = playerSpeed * delta;
@@ -517,6 +530,9 @@ public class Main extends ApplicationAdapter {
             }
         }
 
+        // Update mouse visibility whenever the game state changes.
+        updateCursorVisibility();
+
         // Draw the hidden event.
         if (hiddenEventTriggered) {
 
@@ -641,6 +657,24 @@ public class Main extends ApplicationAdapter {
         }
     }
 
+    // Show the mouse in menus and hide it during gameplay.
+    private void updateCursorVisibility() {
+
+        boolean shouldHideCursor = state == GameState.RUNNING;
+
+        // Only change the cursor when the game state requires it.
+        if (shouldHideCursor != cursorHidden) {
+
+            if (shouldHideCursor) {
+                Gdx.graphics.setSystemCursor(Cursor.SystemCursor.None);
+            } else {
+                Gdx.graphics.setSystemCursor(Cursor.SystemCursor.Arrow);
+            }
+
+            cursorHidden = shouldHideCursor;
+        }
+    }
+
     // Handles movement of all geese.
     private void updateGooseMovement(float realDelta) {
 
@@ -703,23 +737,32 @@ public class Main extends ApplicationAdapter {
     // Handles collisions between player and all geese.
     private void checkGooseCollisions() {
 
+        // Allow the player a moment to move away after the shield activates.
+        if (shieldGraceTimer > 0f) {
+            return;
+        }
+
         for (Goose goose : geese) {
 
             if (goose.collidesWith(
                 playerX, playerY, playerRadius)) {
 
-                // Automatically activate shield.
                 if (inventory.hasShield()) {
 
+                    // Consume the shield and disperse the goose that hit.
                     inventory.consumeShield();
                     itemsUsed++;
-
                     goose.disperse();
+
+                    // Give the player time to move away from nearby geese.
+                    shieldGraceTimer = SHIELD_GRACE_DURATION;
 
                     Gdx.app.log(
                         "Inventory",
                         "Shield blocked a goose attack!"
                     );
+
+                    return;
 
                 } else {
 
@@ -873,6 +916,9 @@ public class Main extends ApplicationAdapter {
         breadActive = false;
         breadTimer = 0f;
 
+        // Reset shield collision grace period.
+        shieldGraceTimer = 0f;
+
         // Reset hidden event.
         hiddenEventTriggered = false;
         speedBoostActive = false;
@@ -999,6 +1045,9 @@ public class Main extends ApplicationAdapter {
         if (state == GameState.RUNNING) {
             state = GameState.PAUSED;
         }
+
+        // Make the mouse visible when the application is paused.
+        updateCursorVisibility();
     }
 
     @Override
@@ -1016,7 +1065,7 @@ public class Main extends ApplicationAdapter {
         breadTexture.dispose();
         shieldTexture.dispose();
 
-        // Release the mouse when the game closes.
-        Gdx.input.setCursorCatched(false);
+        // Restore the normal mouse pointer when the game closes.
+        Gdx.graphics.setSystemCursor(Cursor.SystemCursor.Arrow);
     }
 }

@@ -20,7 +20,7 @@ public class Inventory {
 
     private int selectedSlot = 0;
 
-    // Select a hotbar slot
+    // Select a hotbar slot.
     public void selectSlot(int slot) {
         if (slot >= 0 && slot < items.length) {
             selectedSlot = slot;
@@ -43,14 +43,14 @@ public class Inventory {
         return items[selectedSlot];
     }
 
-    // Use the currently selected item
+    // Use the currently selected item.
     public String useSelectedItem() {
 
         if (quantities[selectedSlot] <= 0) {
             return null;
         }
 
-        // Shield is passive and cannot be manually used
+        // Shield is passive and cannot be manually used.
         if (items[selectedSlot].equals("Shield")) {
             return null;
         }
@@ -60,19 +60,19 @@ public class Inventory {
         return items[selectedSlot];
     }
 
-    // Check whether a shield is available
+    // Check whether a shield is available.
     public boolean hasShield() {
         return quantities[1] > 0;
     }
 
-    // Consume shield after blocking a hit
+    // Consume shield after blocking a hit.
     public void consumeShield() {
         if (hasShield()) {
             quantities[1]--;
         }
     }
 
-    // Restore starting inventory when restarting
+    // Restore starting inventory when restarting.
     public void reset() {
         quantities[0] = 3;
         quantities[1] = 1;

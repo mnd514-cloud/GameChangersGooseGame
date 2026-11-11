@@ -1120,11 +1120,19 @@ public class Main extends ApplicationAdapter {
                     2 * Math.PI * i / geese.size()
                 );
 
-                goose.lureTowards(
+                float targetX = MathUtils.clamp(
                     breadX + ringRadius * (float) Math.cos(angle),
-                    breadY + ringRadius * (float) Math.sin(angle),
-                    BREAD_SPEED * delta
+                    GOOSE_RADIUS,
+                    Gdx.graphics.getWidth() - GOOSE_RADIUS
                 );
+
+                float targetY = MathUtils.clamp(
+                    breadY + ringRadius * (float) Math.sin(angle),
+                    GOOSE_RADIUS,
+                    Gdx.graphics.getHeight() - GOOSE_RADIUS
+                );
+
+                goose.lureTowards(targetX, targetY, BREAD_SPEED * delta);
 
             } else {
 

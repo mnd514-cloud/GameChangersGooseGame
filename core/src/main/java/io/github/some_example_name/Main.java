@@ -109,7 +109,7 @@ public class Main extends ApplicationAdapter {
     // Bread tuning
     private static final float BREAD_DURATION = 5f;
     private static final float BREAD_SPEED = 250f;
-    private static final float BREAD_RING_BASE = 20f;
+    private static final float BREAD_RING_BASE = 15f;
     private static final float BREAD_RING_PER_GOOSE = 8f;
     private static final float BREAD_RING_MAX = 200f;
 
@@ -141,6 +141,15 @@ public class Main extends ApplicationAdapter {
     private static final float MAP_WIDTH = 1536f;
     private static final float MAP_HEIGHT = 1024f;
 
+    // Collie positive hidden event (triggers when player
+    // overlaps with zone around bench)
+    private static final float DOG_ZONE_X = 470f;
+    private static final float DOG_ZONE_Y = 120f;
+    private static final float DOG_ZONE_W = 145f;
+    private static final float DOG_ZONE_H = 100f;
+
+    private Dog dog;
+    private boolean dogEventTriggered = false;
 
     @Override
     public void create() {
@@ -209,6 +218,9 @@ public class Main extends ApplicationAdapter {
 
         // Create tree collision areas
         createTreeCollisions();
+
+        // Create the border collie
+        dog = new Dog();
 
         // Start the player in the centre
         playerX = Gdx.graphics.getWidth() / 2f;
@@ -369,6 +381,37 @@ public class Main extends ApplicationAdapter {
 
         if (canPlayerOccupy(playerX, newY)) {
             playerY = newY;
+        }
+    }
+
+    // =========================================================
+    // COLLIE HIDDEN EVENT
+    // =========================================================
+
+    // Walking onto the bench wakes the groundskeeper's collie.
+    private void checkDogEvent() {
+
+        if (dogEventTriggered) {
+            return;
+        }
+
+        float scaleX = Gdx.graphics.getWidth() / MAP_WIDTH;
+        float scaleY = Gdx.graphics.getHeight() / MAP_HEIGHT;
+
+        float zoneX = DOG_ZONE_X * scaleX;
+        float zoneY = (MAP_HEIGHT - DOG_ZONE_Y - DOG_ZONE_H) * scaleY;
+        float zoneW = DOG_ZONE_W * scaleX;
+        float zoneH = DOG_ZONE_H * scaleY;
+
+        if (playerX >= zoneX && playerX <= zoneX + zoneW
+            && playerY >= zoneY && playerY <= zoneY + zoneH) {
+
+            dogEventTriggered = true;
+            eventsInteracted++;
+
+            dog.start(zoneX + zoneW / 2f, zoneY + zoneH / 2f);
+
+            Gdx.app.log("HiddenEvent", "collie has awakened!");
         }
     }
 
@@ -796,9 +839,11 @@ public class Main extends ApplicationAdapter {
             // Move all geese.
             updateGooseMovement(delta);
 
+            // Move the collie, only occurs after hidden event trigger.
+            dog.update(delta, geese);
+
             // Check collisions with all geese.
             checkGooseCollisions();
-
 
             // Check for a win.
             if (state == GameState.RUNNING && timeRemaining <= 0) {
@@ -825,9 +870,11 @@ public class Main extends ApplicationAdapter {
 
                 Gdx.app.log(
                     "HiddenEvent",
-                    "Top-right event triggered"
+                    "geese speed boost event triggered"
                 );
             }
+            // positive hidden event: sleeping collie
+            checkDogEvent();
         }
 
 
@@ -928,6 +975,8 @@ public class Main extends ApplicationAdapter {
             goose.draw(batch);
         }
 
+        // Draw the collie.
+        dog.draw(batch);
 
         // Timer display.
         int displayedTime = (int) Math.ceil(timeRemaining);
@@ -1373,6 +1422,9 @@ public class Main extends ApplicationAdapter {
         speedBoostActive = false;
         speedBoostTimer = 0f;
 
+        // Reset the positive hidden event (border collie)
+        dogEventTriggered = false;
+        dog.reset();
 
         // Reset inventory.
         inventory.reset();
@@ -1537,6 +1589,8 @@ public class Main extends ApplicationAdapter {
 
         // Dispose of the background map.
         mapTexture.dispose();
+
+        dog.dispose();
 
         // Restore the normal mouse pointer.
         Gdx.graphics.setSystemCursor(

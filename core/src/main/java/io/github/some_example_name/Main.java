@@ -106,11 +106,25 @@ public class Main extends ApplicationAdapter {
     private float breadY;
     private float breadTimer = 0f;
 
+    // Bread tuning
     private static final float BREAD_DURATION = 5f;
     private static final float BREAD_SPEED = 250f;
     private static final float BREAD_RING_BASE = 20f;
     private static final float BREAD_RING_PER_GOOSE = 8f;
     private static final float BREAD_RING_MAX = 200f;
+
+    // Bread throw tuning
+    private static final float BREAD_FLIGHT_TIME = 0.6f;
+    private static final float BREAD_ARC_HEIGHT = 120f;
+    private static final float BREAD_THROW_MIN = 150f;
+    private static final float BREAD_THROW_MAX = 350f;
+
+    private boolean breadFlying = false;
+    private float breadFlightTimer;
+    private float breadStartX;
+    private float breadStartY;
+    private float breadTargetX;
+    private float breadTargetY;
 
     // Hidden event
     private boolean hiddenEventTriggered = false;
@@ -358,6 +372,58 @@ public class Main extends ApplicationAdapter {
         }
     }
 
+    // =========================================================
+    // BREAD THROWING
+    // =========================================================
+
+    // Begins a bread throw from player to random landing spot
+    private void startBreadThrow() {
+        breadStartX = playerX;
+        breadStartY = playerY;
+
+        pickThrowTarget();
+
+        breadFlightTimer = 0f;
+        breadFlying = true;
+    }
+
+    // Chooses a random landing spot inside the window
+    private void pickThrowTarget() {
+        float angle = random.nextFloat() * MathUtils.PI2;
+
+        float distance = BREAD_THROW_MIN
+            + random.nextFloat() * (BREAD_THROW_MAX - BREAD_THROW_MIN);
+
+        breadTargetX = MathUtils.clamp(
+            breadStartX + distance * MathUtils.cos(angle),
+            0f,
+            Gdx.graphics.getWidth()
+        );
+
+        breadTargetY = MathUtils.clamp(
+            breadStartY + distance * MathUtils.sin(angle),
+            0f,
+            Gdx.graphics.getHeight()
+        );
+    }
+
+    // Advances the throw and starts the lure on landing
+    private void updateBreadFlight(float delta) {
+        if (!breadFlying) {
+            return;
+        }
+
+        breadFlightTimer += delta;
+
+        if (breadFlightTimer >= BREAD_FLIGHT_TIME) {
+
+            breadFlying = false;
+            breadActive = true;
+            breadX = breadTargetX;
+            breadY = breadTargetY;
+            breadTimer = BREAD_DURATION;
+        }
+    }
 
     // =========================================================
     // CAMERA AND PROJECTION
@@ -637,7 +703,8 @@ public class Main extends ApplicationAdapter {
         // E uses bread if bread is selected.
         if (state == GameState.RUNNING
             && Gdx.input.isKeyJustPressed(Input.Keys.E)
-            && inventory.getSelectedSlot() == 0) {
+            && inventory.getSelectedSlot() == 0
+            && !breadFlying) {
 
             String itemUsed = inventory.useSelectedItem();
 
@@ -645,11 +712,7 @@ public class Main extends ApplicationAdapter {
 
                 itemsUsed++;
 
-                breadX = playerX;
-                breadY = playerY;
-
-                breadActive = true;
-                breadTimer = BREAD_DURATION;
+                startBreadThrow();
 
                 Gdx.app.log("Inventory", "Threw bread!");
             }
@@ -727,6 +790,9 @@ public class Main extends ApplicationAdapter {
             // Spawn additional geese.
             updateGooseSpawning(delta);
 
+            // Advance thrown bread
+            updateBreadFlight(delta);
+
             // Move all geese.
             updateGooseMovement(delta);
 
@@ -800,10 +866,26 @@ public class Main extends ApplicationAdapter {
 
         shapeRenderer.end();
 
+        // Shadow marking where the bread will land
+        if (breadFlying) {
+            Gdx.gl.glEnable(GL20.GL_BLEND);
+
+            shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+            shapeRenderer.setColor(0, 0, 0, 0.35f);
+
+            shapeRenderer.ellipse(
+                breadTargetX - 14f,
+                breadTargetY - 7f,
+                28f,
+                14f
+            );
+
+            shapeRenderer.end();
+            Gdx.gl.glDisable(GL20.GL_BLEND);
+        }
 
         // Draw bread, geese and HUD.
         batch.begin();
-
 
         // Show bread at the position where it was thrown.
         if (breadActive) {
@@ -819,6 +901,27 @@ public class Main extends ApplicationAdapter {
             );
         }
 
+        // The thrown bread is in flight
+        if (breadFlying) {
+            float t = breadFlightTimer / BREAD_FLIGHT_TIME;
+
+            // Sliding the bread from the player to the landing spot
+            float groundX = MathUtils.lerp(breadStartX, breadTargetX, t);
+            float groundY = MathUtils.lerp(breadStartY, breadTargetY, t);
+
+            float arc = 4f * t * (1f - t);
+            float height = arc * BREAD_ARC_HEIGHT;
+
+            float breadSize = 36f;
+
+            batch.draw(
+                breadTexture,
+                groundX - breadSize / 2f,
+                groundY + height - breadSize / 2f,
+                breadSize,
+                breadSize
+            );
+        }
 
         // Draw all geese.
         for (Goose goose : geese) {
@@ -1248,6 +1351,8 @@ public class Main extends ApplicationAdapter {
         // Reset bread.
         breadActive = false;
         breadTimer = 0f;
+        breadFlying = false;
+        breadFlightTimer = 0f;
 
 
         // Reset shield grace period.

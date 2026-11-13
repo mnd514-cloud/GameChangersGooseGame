@@ -6,8 +6,6 @@ import com.badlogic.gdx.Input;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.Cursor;
 import com.badlogic.gdx.graphics.Texture;
-import com.badlogic.gdx.graphics.g2d.BitmapFont;
-import com.badlogic.gdx.graphics.g2d.GlyphLayout;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.MathUtils;
@@ -41,7 +39,7 @@ public class Main extends ApplicationAdapter {
     private Inventory inventory;
     private CollisionManager collisionManager;
 
-    private BitmapFont font;
+    private HUD hud;
     private SpriteBatch batch;
 
     // Game assets
@@ -85,9 +83,6 @@ public class Main extends ApplicationAdapter {
     private static final float MAX_CIRCLE_RADIUS = 300f;
 
     private float nextCircleRadius = MIN_CIRCLE_RADIUS;
-
-    // Text layout
-    private GlyphLayout layout;
 
     // Geese attracted to bread
     private boolean breadActive = false;
@@ -202,11 +197,9 @@ public class Main extends ApplicationAdapter {
         shapeRenderer = new ShapeRenderer();
         cameraMatrix = new Matrix4();
 
-        font = new BitmapFont();
         batch = new SpriteBatch();
+        hud = new HUD(batch, shapeRenderer, breadTexture, shieldTexture);
 
-        font.getData().setScale(2f);
-        layout = new GlyphLayout();
 
 // Create tree collision areas
         collisionManager.createTreeCollisions(
@@ -752,7 +745,7 @@ public class Main extends ApplicationAdapter {
             Gdx.gl.glDisable(GL20.GL_BLEND);
         }
 
-// Draw bread, geese and HUD.
+// Draw bread, geese, the HUD and the collie.
         batch.begin();
 
 // Show bread at its landing position.
@@ -807,110 +800,20 @@ public class Main extends ApplicationAdapter {
 
 // Draw the collie.
         dog.draw(batch);
-
-// Timer display.
-        int displayedTime = (int) Math.ceil(timeRemaining);
-
-        int minutes = displayedTime / 60;
-        int seconds = displayedTime % 60;
-
-        String timerText = String.format(
-            "%02d:%02d",
-            minutes,
-            seconds
-        );
-
-        font.draw(
-            batch,
-            timerText,
-            20,
-            Gdx.graphics.getHeight() - 20
-        );
-
-// Items used counter.
-        font.draw(
-            batch,
-            "Items used: " + itemsUsed,
-            20,
-            Gdx.graphics.getHeight() - 60
-        );
-
-// Events interacted counter.
-        font.draw(
-            batch,
-            "Events triggered: " + eventsInteracted,
-            20,
-            Gdx.graphics.getHeight() - 100
-        );
-
-// Goose speed boost warning.
-        if (speedBoostActive) {
-
-            font.setColor(1, 0.3f, 0.3f, 1);
-
-            font.draw(
-                batch,
-                "GEESE ENRAGED! "
-                    + (int) Math.ceil(speedBoostTimer) + "s",
-                20,
-                Gdx.graphics.getHeight() - 140
-            );
-
-            font.setColor(1, 1, 1, 1);
-        }
-
         batch.end();
 
-// Draw start or pause screen.
-        if (state == GameState.PAUSED) {
+        hud.drawStats(
+            timeRemaining,
+            itemsUsed,
+            eventsInteracted,
+            speedBoostActive,
+            speedBoostTimer
+        );
 
-            if (started) {
+        hud.drawScreen(state, started);
 
-                drawOverlay(
-                    "PAUSED",
-                    "ESC to resume | I for instructions"
-                );
-
-            } else {
-
-                drawOverlay(
-                    "GOOSE GAME",
-                    "SPACE to start | I for instructions"
-                );
-            }
-        }
-
-// Draw instructions.
-        if (state == GameState.INSTRUCTIONS) {
-            drawInstructions();
-        }
-
-// Draw win or loss screen.
-        if (state == GameState.LOST) {
-
-            drawOverlay(
-                "YOU LOST",
-                "Press R to restart"
-            );
-
-        } else if (state == GameState.WON) {
-
-            drawOverlay(
-                "YOU WIN!",
-                "Press R to restart"
-            );
-        }
-
-// Draw the inventory hotbar.
         if (started) {
-            inventory.drawHotbar(
-                shapeRenderer,
-                batch,
-                font,
-                breadTexture,
-                shieldTexture,
-                Gdx.graphics.getWidth()
-            );
+            hud.drawHotbar(inventory);
         }
     }
 
@@ -1085,121 +988,6 @@ public class Main extends ApplicationAdapter {
     }
 
 // =========================================================
-// MENUS AND INSTRUCTIONS
-// =========================================================
-
-    private void drawOverlay(String title, String hint) {
-
-        float width = Gdx.graphics.getWidth();
-        float height = Gdx.graphics.getHeight();
-
-        dimScreen(0.6f);
-
-        batch.begin();
-
-        font.setColor(1, 1, 1, 1);
-
-        layout.setText(font, title);
-
-        font.draw(
-            batch,
-            layout,
-            (width - layout.width) / 2f,
-            height / 2f + 40f
-        );
-
-        layout.setText(font, hint);
-
-        font.draw(
-            batch,
-            layout,
-            (width - layout.width) / 2f,
-            height / 2f - 10f
-        );
-
-        batch.end();
-    }
-
-    private void drawInstructions() {
-
-        float width = Gdx.graphics.getWidth();
-        float height = Gdx.graphics.getHeight();
-
-        String[] lines = {
-
-            "HOW TO PLAY",
-            "",
-
-            "Dodge the geese for 5 minutes to win.",
-            "Touch a goose and you lose!",
-            "",
-
-            "CONTROLS",
-            "W A S D - move",
-            "1 / 2 - select bread / shield",
-            "E - use selected item",
-            "ESC - pause / resume",
-            "R - restart after winning or losing",
-            "",
-
-            "ITEMS",
-            "Bread - lures all geese to you for 5 seconds",
-            "Shield - automatically blocks one hit",
-            "",
-
-            "Press I or ESC to go back"
-        };
-
-        dimScreen(0.85f);
-
-        batch.begin();
-
-        font.getData().setScale(1.5f);
-
-        font.setColor(1, 1, 1, 1);
-
-        float y = height - 50f;
-
-        for (String line : lines) {
-
-            layout.setText(font, line);
-
-            font.draw(
-                batch,
-                layout,
-                (width - layout.width) / 2f,
-                y
-            );
-
-            y -= 32f;
-        }
-
-        font.getData().setScale(2f);
-
-        batch.end();
-    }
-
-    private void dimScreen(float alpha) {
-
-        Gdx.gl.glEnable(GL20.GL_BLEND);
-
-        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
-
-        shapeRenderer.setColor(0, 0, 0, alpha);
-
-        shapeRenderer.rect(
-            0,
-            0,
-            Gdx.graphics.getWidth(),
-            Gdx.graphics.getHeight()
-        );
-
-        shapeRenderer.end();
-
-        Gdx.gl.glDisable(GL20.GL_BLEND);
-    }
-
-// =========================================================
 // PAUSE AND DISPOSE
 // =========================================================
 
@@ -1218,7 +1006,7 @@ public class Main extends ApplicationAdapter {
 
         shapeRenderer.dispose();
         batch.dispose();
-        font.dispose();
+        hud.dispose();
 
         normalGoose.dispose();
         flyingGoose.dispose();

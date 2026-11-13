@@ -581,24 +581,12 @@ public class Main extends ApplicationAdapter {
             collisionManager.updateShieldGraceTimer(realDelta);
         }
 
-
-// Let the inventory handle hotbar selection input.
-        inventory.handleSelectionInput();
-
-// E uses bread if bread is selected.
-        if (state == GameState.RUNNING
-            && Gdx.input.isKeyJustPressed(Input.Keys.E)
-            && inventory.getSelectedItem().equals("Bread")
-            && !breadFlying) {
-
-            String itemUsed = inventory.useSelectedItem();
+        if (state == GameState.RUNNING && !breadFlying) {
+            String itemUsed = inventory.handleItemUseInput();
 
             if (itemUsed != null) {
-
                 itemsUsed++;
-
                 startBreadThrow();
-
                 Gdx.app.log("Inventory", "Threw bread!");
             }
         }

@@ -91,7 +91,9 @@ public class Inventory {
         }
     }
 
-    /** Draws the complete nine-slot inventory hotbar. */
+    /**
+     * Draws the complete nine-slot inventory hotbar.
+     */
     public void drawHotbar(
         ShapeRenderer shapeRenderer,
         SpriteBatch batch,
@@ -155,5 +157,16 @@ public class Inventory {
         quantities[1] = 1;
 
         selectedSlot = 0;
+    }
+
+    public String handleItemUseInput() {
+        handleSelectionInput();
+
+        if (Gdx.input.isKeyJustPressed(Input.Keys.E)
+            && getSelectedItem().equals("Bread")) {
+            return useSelectedItem();
+        }
+
+        return null;
     }
 }

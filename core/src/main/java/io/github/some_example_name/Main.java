@@ -14,7 +14,6 @@ import com.badlogic.gdx.graphics.g2d.Animation;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Matrix4;
-import com.badlogic.gdx.math.Rectangle;
 
 import java.util.ArrayList;
 import java.util.Random;
@@ -40,8 +39,9 @@ public class Main extends ApplicationAdapter {
     private int itemsUsed = 0;
     private int eventsInteracted = 0;
 
-    // Player inventory
+    // Gameplay systems
     private Inventory inventory;
+    private CollisionManager collisionManager;
 
     private BitmapFont font;
     private SpriteBatch batch;
@@ -78,9 +78,6 @@ public class Main extends ApplicationAdapter {
     // 0 = down, 1 = left, 2 = up, 3 = right
     private int playerFacingDirection = 0;
 
-    // Tree collision areas
-    private final ArrayList<Rectangle> treeObstacles = new ArrayList<>();
-
     // All geese in the game
     private final ArrayList<Goose> geese = new ArrayList<>();
 
@@ -114,10 +111,6 @@ public class Main extends ApplicationAdapter {
     private float playerY;
     private float playerSpeed = 300f;
     private float playerRadius = 15f;
-
-    // Shield collision grace period
-    private static final float SHIELD_GRACE_DURATION = 0.75f;
-    private float shieldGraceTimer = 0f;
 
     // Geese attracted to bread
     private boolean breadActive = false;
@@ -169,7 +162,6 @@ public class Main extends ApplicationAdapter {
     private Dog dog;
     private boolean dogEventTriggered = false;
 
-
 // =========================================================
 // CREATE
 // =========================================================
@@ -178,6 +170,7 @@ public class Main extends ApplicationAdapter {
     public void create() {
 
         inventory = new Inventory();
+        collisionManager = new CollisionManager();
 
         Gdx.graphics.setSystemCursor(Cursor.SystemCursor.Arrow);
 
@@ -315,7 +308,10 @@ public class Main extends ApplicationAdapter {
         layout = new GlyphLayout();
 
 // Create tree collision areas
-        createTreeCollisions();
+        collisionManager.createTreeCollisions(
+            Gdx.graphics.getWidth(),
+            Gdx.graphics.getHeight()
+        );
 
 // Create the border collie
         dog = new Dog();
@@ -355,121 +351,6 @@ public class Main extends ApplicationAdapter {
         updateProjection();
     }
 
-
-// =========================================================
-// MAP AND TREE COLLISION
-// =========================================================
-
-    private void createTreeCollisions() {
-
-        treeObstacles.clear();
-
-        float scaleX = Gdx.graphics.getWidth() / MAP_WIDTH;
-        float scaleY = Gdx.graphics.getHeight() / MAP_HEIGHT;
-
-// Top row
-        addTreeObstacle(52, 105, 36, 45, scaleX, scaleY);
-        addTreeObstacle(662, 95, 38, 60, scaleX, scaleY);
-        addTreeObstacle(1390, 115, 38, 60, scaleX, scaleY);
-
-// Middle row
-        addTreeObstacle(110, 295, 40, 65, scaleX, scaleY);
-        addTreeObstacle(977, 230, 38, 65, scaleX, scaleY);
-        addTreeObstacle(1195, 390, 40, 75, scaleX, scaleY);
-
-// Lower row
-        addTreeObstacle(200, 590, 40, 60, scaleX, scaleY);
-        addTreeObstacle(410, 680, 40, 55, scaleX, scaleY);
-        addTreeObstacle(910, 780, 40, 80, scaleX, scaleY);
-        addTreeObstacle(1460, 690, 40, 90, scaleX, scaleY);
-
-// Bottom row
-        addTreeObstacle(60, 770, 40, 80, scaleX, scaleY);
-        addTreeObstacle(1240, 850, 40, 90, scaleX, scaleY);
-    }
-
-
-    private void addTreeObstacle(
-        float imageX,
-        float imageY,
-        float imageWidth,
-        float imageHeight,
-        float scaleX,
-        float scaleY
-    ) {
-
-        float x = imageX * scaleX;
-
-        float y = (
-            MAP_HEIGHT - imageY - imageHeight
-        ) * scaleY;
-
-        float width = imageWidth * scaleX;
-        float height = imageHeight * scaleY;
-
-        treeObstacles.add(
-            new Rectangle(x, y, width, height)
-        );
-    }
-
-
-    private boolean canPlayerOccupy(float x, float y) {
-
-        for (Rectangle tree : treeObstacles) {
-
-            float closestX = MathUtils.clamp(
-                x,
-                tree.x,
-                tree.x + tree.width
-            );
-
-            float closestY = MathUtils.clamp(
-                y,
-                tree.y,
-                tree.y + tree.height
-            );
-
-            float distanceX = x - closestX;
-            float distanceY = y - closestY;
-
-            if (distanceX * distanceX + distanceY * distanceY
-                < playerRadius * playerRadius) {
-
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-
-    private void movePlayer(float moveX, float moveY) {
-
-        float screenW = Gdx.graphics.getWidth();
-        float screenH = Gdx.graphics.getHeight();
-
-        float newX = MathUtils.clamp(
-            playerX + moveX,
-            playerRadius,
-            screenW - playerRadius
-        );
-
-        if (canPlayerOccupy(newX, playerY)) {
-            playerX = newX;
-        }
-
-        float newY = MathUtils.clamp(
-            playerY + moveY,
-            playerRadius,
-            screenH - playerRadius
-        );
-
-        if (canPlayerOccupy(playerX, newY)) {
-            playerY = newY;
-        }
-    }
-
-
 // =========================================================
 // PLAYER SPRITE ANIMATION
 // =========================================================
@@ -502,7 +383,6 @@ public class Main extends ApplicationAdapter {
         }
     }
 
-
     // Retrieve the correct animation for the player's direction.
     private Animation<TextureRegion> getPlayerAnimation() {
 
@@ -521,7 +401,6 @@ public class Main extends ApplicationAdapter {
                 return playerDownAnimation;
         }
     }
-
 
     // Draw the player using the current directional animation.
     private void drawPlayer(float delta) {
@@ -556,7 +435,6 @@ public class Main extends ApplicationAdapter {
         batch.end();
     }
 
-
 // =========================================================
 // COLLIE HIDDEN EVENT
 // =========================================================
@@ -587,7 +465,6 @@ public class Main extends ApplicationAdapter {
         }
     }
 
-
 // =========================================================
 // BREAD THROWING
 // =========================================================
@@ -602,7 +479,6 @@ public class Main extends ApplicationAdapter {
         breadFlightTimer = 0f;
         breadFlying = true;
     }
-
 
     private void pickThrowTarget() {
 
@@ -624,7 +500,6 @@ public class Main extends ApplicationAdapter {
         );
     }
 
-
     private void updateBreadFlight(float delta) {
 
         if (!breadFlying) {
@@ -642,7 +517,6 @@ public class Main extends ApplicationAdapter {
             breadTimer = BREAD_DURATION;
         }
     }
-
 
 // =========================================================
 // CAMERA AND PROJECTION
@@ -666,7 +540,6 @@ public class Main extends ApplicationAdapter {
         batch.setProjectionMatrix(cameraMatrix);
     }
 
-
 // =========================================================
 // GOOSE SPAWNING
 // =========================================================
@@ -679,7 +552,6 @@ public class Main extends ApplicationAdapter {
             + (0.01f * elapsedMinutes)
             + (0.005f * elapsedMinutes * elapsedMinutes);
     }
-
 
     private void updateGooseSpawning(float delta) {
 
@@ -694,7 +566,6 @@ public class Main extends ApplicationAdapter {
             spawnGoose();
         }
     }
-
 
     private void spawnGoose() {
 
@@ -832,7 +703,6 @@ public class Main extends ApplicationAdapter {
         );
     }
 
-
 // =========================================================
 // WINDOW RESIZING
 // =========================================================
@@ -846,9 +716,8 @@ public class Main extends ApplicationAdapter {
 
         updateProjection();
 
-        createTreeCollisions();
+        collisionManager.createTreeCollisions(width, height);
     }
-
 
 // =========================================================
 // MAIN GAME LOOP
@@ -882,7 +751,6 @@ public class Main extends ApplicationAdapter {
 
         batch.end();
 
-
 // Countdown uses real elapsed time.
         if (state == GameState.RUNNING) {
 
@@ -891,33 +759,19 @@ public class Main extends ApplicationAdapter {
                 timeRemaining - realDelta
             );
 
-            if (shieldGraceTimer > 0f) {
-
-                shieldGraceTimer = Math.max(
-                    0f,
-                    shieldGraceTimer - realDelta
-                );
-            }
+            collisionManager.updateShieldGraceTimer(realDelta);
         }
 
         float movement = playerSpeed * delta;
 
 
-// Select bread with 1.
-        if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_1)) {
-            inventory.selectSlot(0);
-        }
-
-// Select shield with 2.
-        if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_2)) {
-            inventory.selectSlot(1);
-        }
-
+// Let the inventory handle hotbar selection input.
+        inventory.handleSelectionInput();
 
 // E uses bread if bread is selected.
         if (state == GameState.RUNNING
             && Gdx.input.isKeyJustPressed(Input.Keys.E)
-            && inventory.getSelectedSlot() == 0
+            && inventory.getSelectedItem().equals("Bread")
             && !breadFlying) {
 
             String itemUsed = inventory.useSelectedItem();
@@ -932,7 +786,6 @@ public class Main extends ApplicationAdapter {
             }
         }
 
-
 // SPACE starts the game.
         if (!started
             && state == GameState.PAUSED
@@ -942,14 +795,12 @@ public class Main extends ApplicationAdapter {
             state = GameState.RUNNING;
         }
 
-
 // ESC pauses and resumes.
         if (started
             && Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
 
             togglePause();
         }
-
 
 // Instructions screen.
         if (state == GameState.PAUSED
@@ -964,7 +815,6 @@ public class Main extends ApplicationAdapter {
             state = GameState.PAUSED;
         }
 
-
 // R restarts after winning or losing.
         if ((state == GameState.WON || state == GameState.LOST)
             && Gdx.input.isKeyJustPressed(Input.Keys.R)) {
@@ -972,7 +822,6 @@ public class Main extends ApplicationAdapter {
             resetGame();
             state = GameState.RUNNING;
         }
-
 
 // Only move objects while game is running.
         if (state == GameState.RUNNING) {
@@ -999,9 +848,19 @@ public class Main extends ApplicationAdapter {
 // Update player direction and animation state.
             updatePlayerDirection(moveX, moveY);
 
-// Move player while checking tree collisions.
-            movePlayer(moveX, moveY);
+// Move player while the collision manager checks tree obstacles.
+            com.badlogic.gdx.math.Vector2 newPosition = collisionManager.movePlayer(
+                playerX,
+                playerY,
+                moveX,
+                moveY,
+                playerRadius,
+                Gdx.graphics.getWidth(),
+                Gdx.graphics.getHeight()
+            );
 
+            playerX = newPosition.x;
+            playerY = newPosition.y;
 
 // Spawn additional geese.
             updateGooseSpawning(delta);
@@ -1016,7 +875,22 @@ public class Main extends ApplicationAdapter {
             dog.update(delta, geese);
 
 // Check collisions with all geese.
-            checkGooseCollisions();
+            CollisionManager.GooseCollisionResult collisionResult =
+                collisionManager.checkGooseCollisions(
+                    playerX,
+                    playerY,
+                    playerRadius,
+                    geese,
+                    inventory
+                );
+
+            if (collisionResult == CollisionManager.GooseCollisionResult.SHIELD_BLOCKED) {
+                itemsUsed++;
+                Gdx.app.log("Inventory", "Shield blocked a goose attack!");
+            } else if (collisionResult == CollisionManager.GooseCollisionResult.PLAYER_HIT) {
+                state = GameState.LOST;
+                Gdx.app.log("Game", "The geese caught you!");
+            }
 
 // Check for a win.
             if (state == GameState.RUNNING && timeRemaining <= 0) {
@@ -1025,7 +899,6 @@ public class Main extends ApplicationAdapter {
 
                 Gdx.app.log("Game", "Survived - You Win");
             }
-
 
 // Hidden event in the top-right corner.
             float screenW = Gdx.graphics.getWidth();
@@ -1051,10 +924,8 @@ public class Main extends ApplicationAdapter {
             checkDogEvent();
         }
 
-
 // Update mouse visibility.
         updateCursorVisibility();
-
 
 // Draw the hidden event.
         if (hiddenEventTriggered) {
@@ -1073,10 +944,8 @@ public class Main extends ApplicationAdapter {
             shapeRenderer.end();
         }
 
-
 // Draw player sprite instead of the original blue circle.
         drawPlayer(delta);
-
 
 // Shadow marking where bread will land.
         if (breadFlying) {
@@ -1098,7 +967,6 @@ public class Main extends ApplicationAdapter {
             Gdx.gl.glDisable(GL20.GL_BLEND);
         }
 
-
 // Draw bread, geese and HUD.
         batch.begin();
 
@@ -1115,7 +983,6 @@ public class Main extends ApplicationAdapter {
                 droppedBreadSize
             );
         }
-
 
 // Draw bread in flight.
         if (breadFlying) {
@@ -1148,16 +1015,13 @@ public class Main extends ApplicationAdapter {
             );
         }
 
-
 // Draw all geese.
         for (Goose goose : geese) {
             goose.draw(batch);
         }
 
-
 // Draw the collie.
         dog.draw(batch);
-
 
 // Timer display.
         int displayedTime = (int) Math.ceil(timeRemaining);
@@ -1178,7 +1042,6 @@ public class Main extends ApplicationAdapter {
             Gdx.graphics.getHeight() - 20
         );
 
-
 // Items used counter.
         font.draw(
             batch,
@@ -1187,7 +1050,6 @@ public class Main extends ApplicationAdapter {
             Gdx.graphics.getHeight() - 60
         );
 
-
 // Events interacted counter.
         font.draw(
             batch,
@@ -1195,7 +1057,6 @@ public class Main extends ApplicationAdapter {
             20,
             Gdx.graphics.getHeight() - 100
         );
-
 
 // Goose speed boost warning.
         if (speedBoostActive) {
@@ -1214,7 +1075,6 @@ public class Main extends ApplicationAdapter {
         }
 
         batch.end();
-
 
 // Draw start or pause screen.
         if (state == GameState.PAUSED) {
@@ -1235,12 +1095,10 @@ public class Main extends ApplicationAdapter {
             }
         }
 
-
 // Draw instructions.
         if (state == GameState.INSTRUCTIONS) {
             drawInstructions();
         }
-
 
 // Draw win or loss screen.
         if (state == GameState.LOST) {
@@ -1258,13 +1116,18 @@ public class Main extends ApplicationAdapter {
             );
         }
 
-
-// Draw inventory hotbar.
+// Draw the inventory hotbar.
         if (started) {
-            drawHotbar();
+            inventory.drawHotbar(
+                shapeRenderer,
+                batch,
+                font,
+                breadTexture,
+                shieldTexture,
+                Gdx.graphics.getWidth()
+            );
         }
     }
-
 
 // =========================================================
 // PLAYER AND GOOSE GAMEPLAY
@@ -1293,7 +1156,6 @@ public class Main extends ApplicationAdapter {
         }
     }
 
-
     private void updateGooseMovement(float realDelta) {
 
 // Update bread distraction timer.
@@ -1311,7 +1173,6 @@ public class Main extends ApplicationAdapter {
             }
         }
 
-
 // Update speed boost timer.
         if (speedBoostActive) {
 
@@ -1321,7 +1182,6 @@ public class Main extends ApplicationAdapter {
                 speedBoostActive = false;
             }
         }
-
 
 // Geese move faster during the boost.
         float delta = speedBoostActive
@@ -1334,7 +1194,6 @@ public class Main extends ApplicationAdapter {
             BREAD_RING_BASE + geese.size() * BREAD_RING_PER_GOOSE,
             BREAD_RING_MAX
         );
-
 
 // Move every goose.
         for (int i = 0; i < geese.size(); i++) {
@@ -1373,173 +1232,6 @@ public class Main extends ApplicationAdapter {
         }
     }
 
-
-    private void checkGooseCollisions() {
-
-        if (shieldGraceTimer > 0f) {
-            return;
-        }
-
-        for (Goose goose : geese) {
-
-            if (goose.collidesWith(
-                playerX,
-                playerY,
-                playerRadius
-            )) {
-
-                if (inventory.hasShield()) {
-
-                    inventory.consumeShield();
-
-                    itemsUsed++;
-
-                    goose.disperse();
-
-                    shieldGraceTimer = SHIELD_GRACE_DURATION;
-
-                    Gdx.app.log(
-                        "Inventory",
-                        "Shield blocked a goose attack!"
-                    );
-
-                    return;
-
-                } else {
-
-                    state = GameState.LOST;
-
-                    Gdx.app.log(
-                        "Game",
-                        "The geese caught you!"
-                    );
-
-                    return;
-                }
-            }
-        }
-    }
-
-
-// =========================================================
-// INVENTORY HOTBAR
-// =========================================================
-
-    private void drawHotbar() {
-
-        float slotSize = 55f;
-        float gap = 6f;
-
-        float totalWidth = (slotSize * 9) + (gap * 8);
-
-        float startX = (
-            Gdx.graphics.getWidth() - totalWidth
-        ) / 2f;
-
-        float startY = 15f;
-
-
-// Draw slot backgrounds.
-        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
-
-        for (int i = 0; i < 9; i++) {
-
-            float x = startX + i * (slotSize + gap);
-
-            shapeRenderer.setColor(
-                0.2f, 0.2f, 0.2f, 1f
-            );
-
-            shapeRenderer.rect(
-                x,
-                startY,
-                slotSize,
-                slotSize
-            );
-        }
-
-        shapeRenderer.end();
-
-
-// Highlight selected slot.
-        shapeRenderer.begin(ShapeRenderer.ShapeType.Line);
-
-        shapeRenderer.setColor(1f, 0.85f, 0f, 1f);
-
-        float selectedX = startX
-            + inventory.getSelectedSlot() * (slotSize + gap);
-
-        shapeRenderer.rect(
-            selectedX,
-            startY,
-            slotSize,
-            slotSize
-        );
-
-        shapeRenderer.end();
-
-
-// Draw slot numbers, icons and quantities.
-        batch.begin();
-
-        font.getData().setScale(1f);
-
-        for (int i = 0; i < 9; i++) {
-
-            float x = startX + i * (slotSize + gap);
-
-            font.draw(
-                batch,
-                String.valueOf(i + 1),
-                x + 5,
-                startY + slotSize - 5
-            );
-
-            String item = inventory.getItem(i);
-
-
-// Bread icon.
-            if (item.equals("Bread")) {
-
-                batch.draw(
-                    breadTexture,
-                    x + 11,
-                    startY + 15,
-                    33,
-                    30
-                );
-
-// Shield icon.
-            } else if (item.equals("Shield")) {
-
-                batch.draw(
-                    shieldTexture,
-                    x + 12,
-                    startY + 14,
-                    31,
-                    33
-                );
-            }
-
-
-// Item quantity.
-            if (inventory.getQuantity(i) > 0) {
-
-                font.draw(
-                    batch,
-                    "x" + inventory.getQuantity(i),
-                    x + slotSize - 22,
-                    startY + 9
-                );
-            }
-        }
-
-        font.getData().setScale(2f);
-
-        batch.end();
-    }
-
-
 // =========================================================
 // GAME STATE
 // =========================================================
@@ -1556,7 +1248,6 @@ public class Main extends ApplicationAdapter {
         }
     }
 
-
     private void resetGame() {
 
         timeRemaining = GAME_DURATION;
@@ -1569,24 +1260,20 @@ public class Main extends ApplicationAdapter {
         playerMoving = false;
         playerFacingDirection = 0;
 
-
 // Remove all additional geese.
         while (geese.size() > INITIAL_GOOSE_COUNT) {
 
             geese.remove(geese.size() - 1);
         }
 
-
 // Reset original four geese.
         for (Goose goose : geese) {
             goose.reset();
         }
 
-
 // Reset spawning system.
         spawnTimer = 0f;
         nextCircleRadius = MIN_CIRCLE_RADIUS;
-
 
 // Reset bread.
         breadActive = false;
@@ -1594,10 +1281,8 @@ public class Main extends ApplicationAdapter {
         breadFlying = false;
         breadFlightTimer = 0f;
 
-
-// Reset shield grace period.
-        shieldGraceTimer = 0f;
-
+// Reset collision protection period.
+        collisionManager.resetShieldGraceTimer();
 
 // Reset hidden event.
         hiddenEventTriggered = false;
@@ -1605,21 +1290,17 @@ public class Main extends ApplicationAdapter {
         speedBoostActive = false;
         speedBoostTimer = 0f;
 
-
 // Reset the positive hidden event.
         dogEventTriggered = false;
         dog.reset();
 
-
 // Reset inventory.
         inventory.reset();
-
 
 // Reset statistics.
         itemsUsed = 0;
         eventsInteracted = 0;
     }
-
 
 // =========================================================
 // MENUS AND INSTRUCTIONS
@@ -1656,7 +1337,6 @@ public class Main extends ApplicationAdapter {
 
         batch.end();
     }
-
 
     private void drawInstructions() {
 
@@ -1717,7 +1397,6 @@ public class Main extends ApplicationAdapter {
         batch.end();
     }
 
-
     private void dimScreen(float alpha) {
 
         Gdx.gl.glEnable(GL20.GL_BLEND);
@@ -1738,7 +1417,6 @@ public class Main extends ApplicationAdapter {
         Gdx.gl.glDisable(GL20.GL_BLEND);
     }
 
-
 // =========================================================
 // PAUSE AND DISPOSE
 // =========================================================
@@ -1752,7 +1430,6 @@ public class Main extends ApplicationAdapter {
 
         updateCursorVisibility();
     }
-
 
     @Override
     public void dispose() {

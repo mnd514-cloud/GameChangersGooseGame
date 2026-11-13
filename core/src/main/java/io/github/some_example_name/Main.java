@@ -9,6 +9,8 @@ import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.GlyphLayout;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.graphics.g2d.TextureRegion;
+import com.badlogic.gdx.graphics.g2d.Animation;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Matrix4;
@@ -25,7 +27,6 @@ public class Main extends ApplicationAdapter {
     private static final float GAME_DURATION = 300f;
     private float timeRemaining = GAME_DURATION;
 
-    // Longest frame the game will simulate.
     private static final float MAX_FRAME_TIME = 0.05f;
 
     // Game state
@@ -58,6 +59,25 @@ public class Main extends ApplicationAdapter {
     // Background map
     private Texture mapTexture;
 
+    // Player sprite sheet and animations
+    private Texture playerTexture;
+    private TextureRegion[][] playerFrames;
+
+    private Animation<TextureRegion> playerDownAnimation;
+    private Animation<TextureRegion> playerLeftAnimation;
+    private Animation<TextureRegion> playerUpAnimation;
+    private Animation<TextureRegion> playerRightAnimation;
+
+    private float playerAnimationTimer = 0f;
+
+    private TextureRegion currentPlayerFrame;
+
+    // Player movement animation state
+    private boolean playerMoving = false;
+
+    // 0 = down, 1 = left, 2 = up, 3 = right
+    private int playerFacingDirection = 0;
+
     // Tree collision areas
     private final ArrayList<Rectangle> treeObstacles = new ArrayList<>();
 
@@ -70,7 +90,6 @@ public class Main extends ApplicationAdapter {
 
     private static final int INITIAL_GOOSE_COUNT = 4;
 
-    // Starting spawn rate
     private static final float BASE_SPAWN_RATE = 0.5f;
 
     // Goose spawning tuning
@@ -141,8 +160,7 @@ public class Main extends ApplicationAdapter {
     private static final float MAP_WIDTH = 1536f;
     private static final float MAP_HEIGHT = 1024f;
 
-    // Collie positive hidden event (triggers when player
-    // overlaps with zone around bench)
+    // Collie positive hidden event
     private static final float DOG_ZONE_X = 470f;
     private static final float DOG_ZONE_Y = 120f;
     private static final float DOG_ZONE_W = 145f;
@@ -151,6 +169,11 @@ public class Main extends ApplicationAdapter {
     private Dog dog;
     private boolean dogEventTriggered = false;
 
+
+// =========================================================
+// CREATE
+// =========================================================
+
     @Override
     public void create() {
 
@@ -158,7 +181,7 @@ public class Main extends ApplicationAdapter {
 
         Gdx.graphics.setSystemCursor(Cursor.SystemCursor.Arrow);
 
-        // Load goose textures
+// Load goose textures
         normalGoose = new Texture(
             Gdx.files.internal("normal_goose.png")
         );
@@ -175,7 +198,7 @@ public class Main extends ApplicationAdapter {
             Gdx.files.internal("red_breasted_goose.png")
         );
 
-        // Load item icons
+// Load item icons
         breadTexture = new Texture(
             Gdx.files.internal("bread.png")
         );
@@ -184,7 +207,6 @@ public class Main extends ApplicationAdapter {
             Gdx.files.internal("shield.png")
         );
 
-        // Keep pixel-art icons crisp
         breadTexture.setFilter(
             Texture.TextureFilter.Nearest,
             Texture.TextureFilter.Nearest
@@ -195,18 +217,94 @@ public class Main extends ApplicationAdapter {
             Texture.TextureFilter.Nearest
         );
 
-        // Load the park background
+// Load background map
         mapTexture = new Texture(
             Gdx.files.internal("park_map.png")
         );
 
-        // Keep the pixel-art map crisp
         mapTexture.setFilter(
             Texture.TextureFilter.Nearest,
             Texture.TextureFilter.Nearest
         );
 
-        // Create rendering objects
+// Load player sprite sheet
+        playerTexture = new Texture(
+            Gdx.files.internal("MCSprite sheet.png")
+        );
+
+        playerTexture.setFilter(
+            Texture.TextureFilter.Nearest,
+            Texture.TextureFilter.Nearest
+        );
+
+// Split sprite sheet into individual frames.
+// Sheet dimensions: 209 x 326 pixels.
+// Each frame: 23 x 36 pixels.
+// One-pixel border around the sheet.
+
+        playerFrames = new TextureRegion[9][9];
+
+        for (int row = 0; row < 9; row++) {
+
+            for (int col = 0; col < 9; col++) {
+
+                int x = 1 + col * 23;
+
+                int y = playerTexture.getHeight()
+                    - (1 + (row + 1) * 36);
+
+                playerFrames[row][col] = new TextureRegion(
+                    playerTexture,
+                    x,
+                    y,
+                    23,
+                    36
+                );
+            }
+        }
+
+// Create directional animations.
+// Each animation uses all nine frames from its row.
+
+        playerDownAnimation = new Animation<>(
+            0.12f,
+            playerFrames[0]
+        );
+
+        playerLeftAnimation = new Animation<>(
+            0.12f,
+            playerFrames[2]
+        );
+
+        playerUpAnimation = new Animation<>(
+            0.12f,
+            playerFrames[4]
+        );
+
+        playerRightAnimation = new Animation<>(
+            0.12f,
+            playerFrames[6]
+        );
+
+        playerDownAnimation.setPlayMode(
+            Animation.PlayMode.LOOP
+        );
+
+        playerLeftAnimation.setPlayMode(
+            Animation.PlayMode.LOOP
+        );
+
+        playerUpAnimation.setPlayMode(
+            Animation.PlayMode.LOOP
+        );
+
+        playerRightAnimation.setPlayMode(
+            Animation.PlayMode.LOOP
+        );
+
+        currentPlayerFrame = playerDownAnimation.getKeyFrame(0);
+
+// Create rendering objects
         shapeRenderer = new ShapeRenderer();
         cameraMatrix = new Matrix4();
 
@@ -216,17 +314,17 @@ public class Main extends ApplicationAdapter {
         font.getData().setScale(2f);
         layout = new GlyphLayout();
 
-        // Create tree collision areas
+// Create tree collision areas
         createTreeCollisions();
 
-        // Create the border collie
+// Create the border collie
         dog = new Dog();
 
-        // Start the player in the centre
+// Start the player in the centre
         playerX = Gdx.graphics.getWidth() / 2f;
         playerY = Gdx.graphics.getHeight() / 2f;
 
-        // Create the original four geese
+// Create the original four geese
         geese.add(new Goose(
             normalGoose,
             MovementType.HORIZONTAL,
@@ -258,12 +356,10 @@ public class Main extends ApplicationAdapter {
     }
 
 
-    // =========================================================
-    // MAP AND TREE COLLISION
-    // =========================================================
+// =========================================================
+// MAP AND TREE COLLISION
+// =========================================================
 
-    // Creates collision rectangles around the tree trunks.
-    // Coordinates are based on the 1536 x 1024 map image.
     private void createTreeCollisions() {
 
         treeObstacles.clear();
@@ -271,29 +367,28 @@ public class Main extends ApplicationAdapter {
         float scaleX = Gdx.graphics.getWidth() / MAP_WIDTH;
         float scaleY = Gdx.graphics.getHeight() / MAP_HEIGHT;
 
-        // Top row
+// Top row
         addTreeObstacle(52, 105, 36, 45, scaleX, scaleY);
         addTreeObstacle(662, 95, 38, 60, scaleX, scaleY);
         addTreeObstacle(1390, 115, 38, 60, scaleX, scaleY);
 
-        // Middle row
+// Middle row
         addTreeObstacle(110, 295, 40, 65, scaleX, scaleY);
         addTreeObstacle(977, 230, 38, 65, scaleX, scaleY);
         addTreeObstacle(1195, 390, 40, 75, scaleX, scaleY);
 
-        // Lower row
+// Lower row
         addTreeObstacle(200, 590, 40, 60, scaleX, scaleY);
         addTreeObstacle(410, 680, 40, 55, scaleX, scaleY);
         addTreeObstacle(910, 780, 40, 80, scaleX, scaleY);
         addTreeObstacle(1460, 690, 40, 90, scaleX, scaleY);
 
-        // Bottom row
+// Bottom row
         addTreeObstacle(60, 770, 40, 80, scaleX, scaleY);
         addTreeObstacle(1240, 850, 40, 90, scaleX, scaleY);
     }
 
 
-    // Converts image coordinates into game-window coordinates.
     private void addTreeObstacle(
         float imageX,
         float imageY,
@@ -305,8 +400,6 @@ public class Main extends ApplicationAdapter {
 
         float x = imageX * scaleX;
 
-        // Convert from image coordinates (top-left origin)
-        // to LibGDX coordinates (bottom-left origin).
         float y = (
             MAP_HEIGHT - imageY - imageHeight
         ) * scaleY;
@@ -320,12 +413,10 @@ public class Main extends ApplicationAdapter {
     }
 
 
-    // Checks whether the circular player overlaps any tree.
     private boolean canPlayerOccupy(float x, float y) {
 
         for (Rectangle tree : treeObstacles) {
 
-            // Find the closest point on the rectangle to the player.
             float closestX = MathUtils.clamp(
                 x,
                 tree.x,
@@ -341,7 +432,6 @@ public class Main extends ApplicationAdapter {
             float distanceX = x - closestX;
             float distanceY = y - closestY;
 
-            // Check whether the player circle overlaps the tree.
             if (distanceX * distanceX + distanceY * distanceY
                 < playerRadius * playerRadius) {
 
@@ -353,15 +443,11 @@ public class Main extends ApplicationAdapter {
     }
 
 
-    // Moves the player while preventing movement through trees.
-    // Horizontal and vertical movement are checked separately
-    // to allow the player to slide around obstacles.
     private void movePlayer(float moveX, float moveY) {
 
         float screenW = Gdx.graphics.getWidth();
         float screenH = Gdx.graphics.getHeight();
 
-        // Try horizontal movement first.
         float newX = MathUtils.clamp(
             playerX + moveX,
             playerRadius,
@@ -372,7 +458,6 @@ public class Main extends ApplicationAdapter {
             playerX = newX;
         }
 
-        // Then try vertical movement.
         float newY = MathUtils.clamp(
             playerY + moveY,
             playerRadius,
@@ -384,11 +469,98 @@ public class Main extends ApplicationAdapter {
         }
     }
 
-    // =========================================================
-    // COLLIE HIDDEN EVENT
-    // =========================================================
 
-    // Walking onto the bench wakes the groundskeeper's collie.
+// =========================================================
+// PLAYER SPRITE ANIMATION
+// =========================================================
+
+    // Select the direction the player is facing.
+    private void updatePlayerDirection(float moveX, float moveY) {
+
+        playerMoving = moveX != 0 || moveY != 0;
+
+        if (!playerMoving) {
+            return;
+        }
+
+// Use the dominant movement axis to determine direction.
+        if (Math.abs(moveX) > Math.abs(moveY)) {
+
+            if (moveX < 0) {
+                playerFacingDirection = 1;
+            } else {
+                playerFacingDirection = 3;
+            }
+
+        } else {
+
+            if (moveY < 0) {
+                playerFacingDirection = 0;
+            } else {
+                playerFacingDirection = 2;
+            }
+        }
+    }
+
+
+    // Retrieve the correct animation for the player's direction.
+    private Animation<TextureRegion> getPlayerAnimation() {
+
+        switch (playerFacingDirection) {
+
+            case 1:
+                return playerLeftAnimation;
+
+            case 2:
+                return playerUpAnimation;
+
+            case 3:
+                return playerRightAnimation;
+
+            default:
+                return playerDownAnimation;
+        }
+    }
+
+
+    // Draw the player using the current directional animation.
+    private void drawPlayer(float delta) {
+
+        if (playerMoving && state == GameState.RUNNING) {
+
+            playerAnimationTimer += delta;
+
+        } else {
+
+// Show the first frame when standing still.
+            playerAnimationTimer = 0f;
+        }
+
+        currentPlayerFrame = getPlayerAnimation().getKeyFrame(
+            playerAnimationTimer
+        );
+
+        float spriteWidth = 46f;
+        float spriteHeight = 72f;
+
+        batch.begin();
+
+        batch.draw(
+            currentPlayerFrame,
+            playerX - spriteWidth / 2f,
+            playerY - spriteHeight / 2f,
+            spriteWidth,
+            spriteHeight
+        );
+
+        batch.end();
+    }
+
+
+// =========================================================
+// COLLIE HIDDEN EVENT
+// =========================================================
+
     private void checkDogEvent() {
 
         if (dogEventTriggered) {
@@ -415,12 +587,13 @@ public class Main extends ApplicationAdapter {
         }
     }
 
-    // =========================================================
-    // BREAD THROWING
-    // =========================================================
 
-    // Begins a bread throw from player to random landing spot
+// =========================================================
+// BREAD THROWING
+// =========================================================
+
     private void startBreadThrow() {
+
         breadStartX = playerX;
         breadStartY = playerY;
 
@@ -430,8 +603,9 @@ public class Main extends ApplicationAdapter {
         breadFlying = true;
     }
 
-    // Chooses a random landing spot inside the window
+
     private void pickThrowTarget() {
+
         float angle = random.nextFloat() * MathUtils.PI2;
 
         float distance = BREAD_THROW_MIN
@@ -450,8 +624,9 @@ public class Main extends ApplicationAdapter {
         );
     }
 
-    // Advances the throw and starts the lure on landing
+
     private void updateBreadFlight(float delta) {
+
         if (!breadFlying) {
             return;
         }
@@ -468,9 +643,10 @@ public class Main extends ApplicationAdapter {
         }
     }
 
-    // =========================================================
-    // CAMERA AND PROJECTION
-    // =========================================================
+
+// =========================================================
+// CAMERA AND PROJECTION
+// =========================================================
 
     private void updateProjection() {
 
@@ -491,11 +667,10 @@ public class Main extends ApplicationAdapter {
     }
 
 
-    // =========================================================
-    // GOOSE SPAWNING
-    // =========================================================
+// =========================================================
+// GOOSE SPAWNING
+// =========================================================
 
-    // Calculate how many geese spawn per second.
     private float calculateSpawnRate() {
 
         float elapsedMinutes = (GAME_DURATION - timeRemaining) / 60f;
@@ -506,7 +681,6 @@ public class Main extends ApplicationAdapter {
     }
 
 
-    // Check whether another goose should spawn.
     private void updateGooseSpawning(float delta) {
 
         spawnTimer += delta;
@@ -522,7 +696,6 @@ public class Main extends ApplicationAdapter {
     }
 
 
-    // Create a new goose with a random movement pattern.
     private void spawnGoose() {
 
         float width = Gdx.graphics.getWidth();
@@ -660,9 +833,9 @@ public class Main extends ApplicationAdapter {
     }
 
 
-    // =========================================================
-    // WINDOW RESIZING
-    // =========================================================
+// =========================================================
+// WINDOW RESIZING
+// =========================================================
 
     @Override
     public void resize(int width, int height) {
@@ -673,14 +846,13 @@ public class Main extends ApplicationAdapter {
 
         updateProjection();
 
-        // Recalculate tree collision positions for the new window size.
         createTreeCollisions();
     }
 
 
-    // =========================================================
-    // MAIN GAME LOOP
-    // =========================================================
+// =========================================================
+// MAIN GAME LOOP
+// =========================================================
 
     @Override
     public void render() {
@@ -697,7 +869,7 @@ public class Main extends ApplicationAdapter {
         float realDelta = Gdx.graphics.getDeltaTime();
         float delta = Math.min(realDelta, MAX_FRAME_TIME);
 
-        // Draw the background map first.
+// Draw background map
         batch.begin();
 
         batch.draw(
@@ -711,8 +883,7 @@ public class Main extends ApplicationAdapter {
         batch.end();
 
 
-        // Countdown uses real elapsed time.
-        // Movement uses the capped delta.
+// Countdown uses real elapsed time.
         if (state == GameState.RUNNING) {
 
             timeRemaining = Math.max(
@@ -732,18 +903,18 @@ public class Main extends ApplicationAdapter {
         float movement = playerSpeed * delta;
 
 
-        // Select bread with 1.
+// Select bread with 1.
         if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_1)) {
             inventory.selectSlot(0);
         }
 
-        // Select shield with 2.
+// Select shield with 2.
         if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_2)) {
             inventory.selectSlot(1);
         }
 
 
-        // E uses bread if bread is selected.
+// E uses bread if bread is selected.
         if (state == GameState.RUNNING
             && Gdx.input.isKeyJustPressed(Input.Keys.E)
             && inventory.getSelectedSlot() == 0
@@ -762,7 +933,7 @@ public class Main extends ApplicationAdapter {
         }
 
 
-        // SPACE starts the game.
+// SPACE starts the game.
         if (!started
             && state == GameState.PAUSED
             && Gdx.input.isKeyJustPressed(Input.Keys.SPACE)) {
@@ -772,7 +943,7 @@ public class Main extends ApplicationAdapter {
         }
 
 
-        // ESC pauses and resumes.
+// ESC pauses and resumes.
         if (started
             && Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
 
@@ -780,7 +951,7 @@ public class Main extends ApplicationAdapter {
         }
 
 
-        // Instructions screen.
+// Instructions screen.
         if (state == GameState.PAUSED
             && Gdx.input.isKeyJustPressed(Input.Keys.I)) {
 
@@ -794,7 +965,7 @@ public class Main extends ApplicationAdapter {
         }
 
 
-        // R restarts after winning or losing.
+// R restarts after winning or losing.
         if ((state == GameState.WON || state == GameState.LOST)
             && Gdx.input.isKeyJustPressed(Input.Keys.R)) {
 
@@ -803,10 +974,9 @@ public class Main extends ApplicationAdapter {
         }
 
 
-        // Only move objects while the game is running.
+// Only move objects while game is running.
         if (state == GameState.RUNNING) {
 
-            // Calculate player movement.
             float moveX = 0f;
             float moveY = 0f;
 
@@ -826,26 +996,29 @@ public class Main extends ApplicationAdapter {
                 moveX += movement;
             }
 
-            // Move player while checking tree collisions.
+// Update player direction and animation state.
+            updatePlayerDirection(moveX, moveY);
+
+// Move player while checking tree collisions.
             movePlayer(moveX, moveY);
 
 
-            // Spawn additional geese.
+// Spawn additional geese.
             updateGooseSpawning(delta);
 
-            // Advance thrown bread
+// Advance thrown bread.
             updateBreadFlight(delta);
 
-            // Move all geese.
+// Move all geese.
             updateGooseMovement(delta);
 
-            // Move the collie, only occurs after hidden event trigger.
+// Move the collie.
             dog.update(delta, geese);
 
-            // Check collisions with all geese.
+// Check collisions with all geese.
             checkGooseCollisions();
 
-            // Check for a win.
+// Check for a win.
             if (state == GameState.RUNNING && timeRemaining <= 0) {
 
                 state = GameState.WON;
@@ -854,7 +1027,7 @@ public class Main extends ApplicationAdapter {
             }
 
 
-            // Hidden event in the top-right corner.
+// Hidden event in the top-right corner.
             float screenW = Gdx.graphics.getWidth();
             float screenH = Gdx.graphics.getHeight();
 
@@ -873,16 +1046,17 @@ public class Main extends ApplicationAdapter {
                     "geese speed boost event triggered"
                 );
             }
-            // positive hidden event: sleeping collie
+
+// Positive hidden event: sleeping collie.
             checkDogEvent();
         }
 
 
-        // Update mouse visibility.
+// Update mouse visibility.
         updateCursorVisibility();
 
 
-        // Draw the hidden event.
+// Draw the hidden event.
         if (hiddenEventTriggered) {
 
             shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
@@ -900,21 +1074,13 @@ public class Main extends ApplicationAdapter {
         }
 
 
-        // Draw the player.
-        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+// Draw player sprite instead of the original blue circle.
+        drawPlayer(delta);
 
-        shapeRenderer.setColor(0.1f, 0.4f, 1f, 1f);
 
-        shapeRenderer.circle(
-            playerX,
-            playerY,
-            playerRadius
-        );
-
-        shapeRenderer.end();
-
-        // Shadow marking where the bread will land
+// Shadow marking where bread will land.
         if (breadFlying) {
+
             Gdx.gl.glEnable(GL20.GL_BLEND);
 
             shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
@@ -928,13 +1094,15 @@ public class Main extends ApplicationAdapter {
             );
 
             shapeRenderer.end();
+
             Gdx.gl.glDisable(GL20.GL_BLEND);
         }
 
-        // Draw bread, geese and HUD.
+
+// Draw bread, geese and HUD.
         batch.begin();
 
-        // Show bread at the position where it was thrown.
+// Show bread at its landing position.
         if (breadActive) {
 
             float droppedBreadSize = 36f;
@@ -948,13 +1116,23 @@ public class Main extends ApplicationAdapter {
             );
         }
 
-        // The thrown bread is in flight
+
+// Draw bread in flight.
         if (breadFlying) {
+
             float t = breadFlightTimer / BREAD_FLIGHT_TIME;
 
-            // Sliding the bread from the player to the landing spot
-            float groundX = MathUtils.lerp(breadStartX, breadTargetX, t);
-            float groundY = MathUtils.lerp(breadStartY, breadTargetY, t);
+            float groundX = MathUtils.lerp(
+                breadStartX,
+                breadTargetX,
+                t
+            );
+
+            float groundY = MathUtils.lerp(
+                breadStartY,
+                breadTargetY,
+                t
+            );
 
             float arc = 4f * t * (1f - t);
             float height = arc * BREAD_ARC_HEIGHT;
@@ -970,15 +1148,18 @@ public class Main extends ApplicationAdapter {
             );
         }
 
-        // Draw all geese.
+
+// Draw all geese.
         for (Goose goose : geese) {
             goose.draw(batch);
         }
 
-        // Draw the collie.
+
+// Draw the collie.
         dog.draw(batch);
 
-        // Timer display.
+
+// Timer display.
         int displayedTime = (int) Math.ceil(timeRemaining);
 
         int minutes = displayedTime / 60;
@@ -998,7 +1179,7 @@ public class Main extends ApplicationAdapter {
         );
 
 
-        // Items used counter.
+// Items used counter.
         font.draw(
             batch,
             "Items used: " + itemsUsed,
@@ -1007,7 +1188,7 @@ public class Main extends ApplicationAdapter {
         );
 
 
-        // Events interacted counter.
+// Events interacted counter.
         font.draw(
             batch,
             "Events triggered: " + eventsInteracted,
@@ -1016,7 +1197,7 @@ public class Main extends ApplicationAdapter {
         );
 
 
-        // Goose speed boost warning.
+// Goose speed boost warning.
         if (speedBoostActive) {
 
             font.setColor(1, 0.3f, 0.3f, 1);
@@ -1035,7 +1216,7 @@ public class Main extends ApplicationAdapter {
         batch.end();
 
 
-        // Draw start or pause screen.
+// Draw start or pause screen.
         if (state == GameState.PAUSED) {
 
             if (started) {
@@ -1055,13 +1236,13 @@ public class Main extends ApplicationAdapter {
         }
 
 
-        // Draw instructions.
+// Draw instructions.
         if (state == GameState.INSTRUCTIONS) {
             drawInstructions();
         }
 
 
-        // Draw win or loss screen.
+// Draw win or loss screen.
         if (state == GameState.LOST) {
 
             drawOverlay(
@@ -1078,18 +1259,17 @@ public class Main extends ApplicationAdapter {
         }
 
 
-        // Draw inventory hotbar.
+// Draw inventory hotbar.
         if (started) {
             drawHotbar();
         }
     }
 
 
-    // =========================================================
-    // PLAYER AND GOOSE GAMEPLAY
-    // =========================================================
+// =========================================================
+// PLAYER AND GOOSE GAMEPLAY
+// =========================================================
 
-    // Show the mouse in menus and hide it during gameplay.
     private void updateCursorVisibility() {
 
         boolean shouldHideCursor = state == GameState.RUNNING;
@@ -1114,10 +1294,9 @@ public class Main extends ApplicationAdapter {
     }
 
 
-    // Handles movement of all geese.
     private void updateGooseMovement(float realDelta) {
 
-        // Update bread distraction timer.
+// Update bread distraction timer.
         if (breadActive) {
 
             breadTimer -= realDelta;
@@ -1133,7 +1312,7 @@ public class Main extends ApplicationAdapter {
         }
 
 
-        // Update speed boost timer.
+// Update speed boost timer.
         if (speedBoostActive) {
 
             speedBoostTimer -= realDelta;
@@ -1144,27 +1323,27 @@ public class Main extends ApplicationAdapter {
         }
 
 
-        // Geese move faster during the boost.
+// Geese move faster during the boost.
         float delta = speedBoostActive
             ? realDelta * SPEED_BOOST_MULTIPLIER
             : realDelta;
 
 
-        // Scale the circle surrounding bread with the number of geese.
+// Scale the circle surrounding bread with goose count.
         float ringRadius = Math.min(
             BREAD_RING_BASE + geese.size() * BREAD_RING_PER_GOOSE,
             BREAD_RING_MAX
         );
 
 
-        // Move every goose.
+// Move every goose.
         for (int i = 0; i < geese.size(); i++) {
 
             Goose goose = geese.get(i);
 
             if (breadActive) {
 
-                // Spread geese around the bread.
+// Spread geese around the bread.
                 float angle = (float) (
                     2 * Math.PI * i / geese.size()
                 );
@@ -1181,7 +1360,11 @@ public class Main extends ApplicationAdapter {
                     Gdx.graphics.getHeight() - GOOSE_RADIUS
                 );
 
-                goose.lureTowards(targetX, targetY, BREAD_SPEED * delta);
+                goose.lureTowards(
+                    targetX,
+                    targetY,
+                    BREAD_SPEED * delta
+                );
 
             } else {
 
@@ -1191,10 +1374,8 @@ public class Main extends ApplicationAdapter {
     }
 
 
-    // Handles collisions between player and all geese.
     private void checkGooseCollisions() {
 
-        // Allow the player time to move away after shield activation.
         if (shieldGraceTimer > 0f) {
             return;
         }
@@ -1209,7 +1390,6 @@ public class Main extends ApplicationAdapter {
 
                 if (inventory.hasShield()) {
 
-                    // Consume shield and disperse attacking goose.
                     inventory.consumeShield();
 
                     itemsUsed++;
@@ -1241,9 +1421,9 @@ public class Main extends ApplicationAdapter {
     }
 
 
-    // =========================================================
-    // INVENTORY HOTBAR
-    // =========================================================
+// =========================================================
+// INVENTORY HOTBAR
+// =========================================================
 
     private void drawHotbar() {
 
@@ -1259,7 +1439,7 @@ public class Main extends ApplicationAdapter {
         float startY = 15f;
 
 
-        // Draw slot backgrounds.
+// Draw slot backgrounds.
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
 
         for (int i = 0; i < 9; i++) {
@@ -1281,7 +1461,7 @@ public class Main extends ApplicationAdapter {
         shapeRenderer.end();
 
 
-        // Highlight selected slot.
+// Highlight selected slot.
         shapeRenderer.begin(ShapeRenderer.ShapeType.Line);
 
         shapeRenderer.setColor(1f, 0.85f, 0f, 1f);
@@ -1299,7 +1479,7 @@ public class Main extends ApplicationAdapter {
         shapeRenderer.end();
 
 
-        // Draw slot numbers, icons and quantities.
+// Draw slot numbers, icons and quantities.
         batch.begin();
 
         font.getData().setScale(1f);
@@ -1318,7 +1498,7 @@ public class Main extends ApplicationAdapter {
             String item = inventory.getItem(i);
 
 
-            // Bread icon.
+// Bread icon.
             if (item.equals("Bread")) {
 
                 batch.draw(
@@ -1329,7 +1509,7 @@ public class Main extends ApplicationAdapter {
                     30
                 );
 
-                // Shield icon.
+// Shield icon.
             } else if (item.equals("Shield")) {
 
                 batch.draw(
@@ -1342,7 +1522,7 @@ public class Main extends ApplicationAdapter {
             }
 
 
-            // Item quantity.
+// Item quantity.
             if (inventory.getQuantity(i) > 0) {
 
                 font.draw(
@@ -1360,11 +1540,10 @@ public class Main extends ApplicationAdapter {
     }
 
 
-    // =========================================================
-    // GAME STATE
-    // =========================================================
+// =========================================================
+// GAME STATE
+// =========================================================
 
-    // Switch between RUNNING and PAUSED.
     private void togglePause() {
 
         if (state == GameState.RUNNING) {
@@ -1378,7 +1557,6 @@ public class Main extends ApplicationAdapter {
     }
 
 
-    // Reset timer, player and geese.
     private void resetGame() {
 
         timeRemaining = GAME_DURATION;
@@ -1386,61 +1564,67 @@ public class Main extends ApplicationAdapter {
         playerX = Gdx.graphics.getWidth() / 2f;
         playerY = Gdx.graphics.getHeight() / 2f;
 
+// Reset player animation.
+        playerAnimationTimer = 0f;
+        playerMoving = false;
+        playerFacingDirection = 0;
 
-        // Remove all additional geese.
+
+// Remove all additional geese.
         while (geese.size() > INITIAL_GOOSE_COUNT) {
 
             geese.remove(geese.size() - 1);
         }
 
 
-        // Reset original four geese.
+// Reset original four geese.
         for (Goose goose : geese) {
             goose.reset();
         }
 
 
-        // Reset spawning system.
+// Reset spawning system.
         spawnTimer = 0f;
         nextCircleRadius = MIN_CIRCLE_RADIUS;
 
 
-        // Reset bread.
+// Reset bread.
         breadActive = false;
         breadTimer = 0f;
         breadFlying = false;
         breadFlightTimer = 0f;
 
 
-        // Reset shield grace period.
+// Reset shield grace period.
         shieldGraceTimer = 0f;
 
 
-        // Reset hidden event.
+// Reset hidden event.
         hiddenEventTriggered = false;
 
         speedBoostActive = false;
         speedBoostTimer = 0f;
 
-        // Reset the positive hidden event (border collie)
+
+// Reset the positive hidden event.
         dogEventTriggered = false;
         dog.reset();
 
-        // Reset inventory.
+
+// Reset inventory.
         inventory.reset();
 
 
-        // Reset statistics.
+// Reset statistics.
         itemsUsed = 0;
         eventsInteracted = 0;
     }
 
 
-    // =========================================================
-    // MENUS AND INSTRUCTIONS
-    // =========================================================
+// =========================================================
+// MENUS AND INSTRUCTIONS
+// =========================================================
 
-    // Darken screen and show a title with a hint.
     private void drawOverlay(String title, String hint) {
 
         float width = Gdx.graphics.getWidth();
@@ -1474,7 +1658,6 @@ public class Main extends ApplicationAdapter {
     }
 
 
-    // Darken screen and show instructions.
     private void drawInstructions() {
 
         float width = Gdx.graphics.getWidth();
@@ -1535,7 +1718,6 @@ public class Main extends ApplicationAdapter {
     }
 
 
-    // Darken screen behind an overlay.
     private void dimScreen(float alpha) {
 
         Gdx.gl.glEnable(GL20.GL_BLEND);
@@ -1557,9 +1739,9 @@ public class Main extends ApplicationAdapter {
     }
 
 
-    // =========================================================
-    // PAUSE AND DISPOSE
-    // =========================================================
+// =========================================================
+// PAUSE AND DISPOSE
+// =========================================================
 
     @Override
     public void pause() {
@@ -1587,12 +1769,14 @@ public class Main extends ApplicationAdapter {
         breadTexture.dispose();
         shieldTexture.dispose();
 
-        // Dispose of the background map.
         mapTexture.dispose();
+
+// Dispose of player sprite sheet.
+        playerTexture.dispose();
 
         dog.dispose();
 
-        // Restore the normal mouse pointer.
+// Restore normal mouse pointer.
         Gdx.graphics.setSystemCursor(
             Cursor.SystemCursor.Arrow
         );

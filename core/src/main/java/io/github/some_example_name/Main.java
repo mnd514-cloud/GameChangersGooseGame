@@ -9,8 +9,6 @@ import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.GlyphLayout;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
-import com.badlogic.gdx.graphics.g2d.TextureRegion;
-import com.badlogic.gdx.graphics.g2d.Animation;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Matrix4;
@@ -59,24 +57,9 @@ public class Main extends ApplicationAdapter {
     // Background map
     private Texture mapTexture;
 
-    // Player sprite sheet and animations
-    private Texture playerTexture;
-    private TextureRegion[][] playerFrames;
+    // Player sprite instance
+    private Player player;
 
-    private Animation<TextureRegion> playerDownAnimation;
-    private Animation<TextureRegion> playerLeftAnimation;
-    private Animation<TextureRegion> playerUpAnimation;
-    private Animation<TextureRegion> playerRightAnimation;
-
-    private float playerAnimationTimer = 0f;
-
-    private TextureRegion currentPlayerFrame;
-
-    // Player movement animation state
-    private boolean playerMoving = false;
-
-    // 0 = down, 1 = left, 2 = up, 3 = right
-    private int playerFacingDirection = 0;
 
     // All geese in the game
     private final ArrayList<Goose> geese = new ArrayList<>();
@@ -105,12 +88,6 @@ public class Main extends ApplicationAdapter {
 
     // Text layout
     private GlyphLayout layout;
-
-    // Player position and movement
-    private float playerX;
-    private float playerY;
-    private float playerSpeed = 300f;
-    private float playerRadius = 15f;
 
     // Geese attracted to bread
     private boolean breadActive = false;
@@ -220,82 +197,6 @@ public class Main extends ApplicationAdapter {
             Texture.TextureFilter.Nearest
         );
 
-// Load player sprite sheet
-        playerTexture = new Texture(
-            Gdx.files.internal("MCSprite sheet.png")
-        );
-
-        playerTexture.setFilter(
-            Texture.TextureFilter.Nearest,
-            Texture.TextureFilter.Nearest
-        );
-
-// Split sprite sheet into individual frames.
-// Sheet dimensions: 209 x 326 pixels.
-// Each frame: 23 x 36 pixels.
-// One-pixel border around the sheet.
-
-        playerFrames = new TextureRegion[9][9];
-
-        for (int row = 0; row < 9; row++) {
-
-            for (int col = 0; col < 9; col++) {
-
-                int x = 1 + col * 23;
-
-                int y = playerTexture.getHeight()
-                    - (1 + (row + 1) * 36);
-
-                playerFrames[row][col] = new TextureRegion(
-                    playerTexture,
-                    x,
-                    y,
-                    23,
-                    36
-                );
-            }
-        }
-
-// Create directional animations.
-// Each animation uses all nine frames from its row.
-
-        playerDownAnimation = new Animation<>(
-            0.12f,
-            playerFrames[0]
-        );
-
-        playerLeftAnimation = new Animation<>(
-            0.12f,
-            playerFrames[2]
-        );
-
-        playerUpAnimation = new Animation<>(
-            0.12f,
-            playerFrames[4]
-        );
-
-        playerRightAnimation = new Animation<>(
-            0.12f,
-            playerFrames[6]
-        );
-
-        playerDownAnimation.setPlayMode(
-            Animation.PlayMode.LOOP
-        );
-
-        playerLeftAnimation.setPlayMode(
-            Animation.PlayMode.LOOP
-        );
-
-        playerUpAnimation.setPlayMode(
-            Animation.PlayMode.LOOP
-        );
-
-        playerRightAnimation.setPlayMode(
-            Animation.PlayMode.LOOP
-        );
-
-        currentPlayerFrame = playerDownAnimation.getKeyFrame(0);
 
 // Create rendering objects
         shapeRenderer = new ShapeRenderer();
@@ -317,8 +218,10 @@ public class Main extends ApplicationAdapter {
         dog = new Dog();
 
 // Start the player in the centre
-        playerX = Gdx.graphics.getWidth() / 2f;
-        playerY = Gdx.graphics.getHeight() / 2f;
+        player = new Player(
+            Gdx.graphics.getWidth() / 2f,
+            Gdx.graphics.getHeight() / 2f
+        );
 
 // Create the original four geese
         geese.add(new Goose(
@@ -352,90 +255,6 @@ public class Main extends ApplicationAdapter {
     }
 
 // =========================================================
-// PLAYER SPRITE ANIMATION
-// =========================================================
-
-    // Select the direction the player is facing.
-    private void updatePlayerDirection(float moveX, float moveY) {
-
-        playerMoving = moveX != 0 || moveY != 0;
-
-        if (!playerMoving) {
-            return;
-        }
-
-// Use the dominant movement axis to determine direction.
-        if (Math.abs(moveX) > Math.abs(moveY)) {
-
-            if (moveX < 0) {
-                playerFacingDirection = 1;
-            } else {
-                playerFacingDirection = 3;
-            }
-
-        } else {
-
-            if (moveY < 0) {
-                playerFacingDirection = 0;
-            } else {
-                playerFacingDirection = 2;
-            }
-        }
-    }
-
-    // Retrieve the correct animation for the player's direction.
-    private Animation<TextureRegion> getPlayerAnimation() {
-
-        switch (playerFacingDirection) {
-
-            case 1:
-                return playerLeftAnimation;
-
-            case 2:
-                return playerUpAnimation;
-
-            case 3:
-                return playerRightAnimation;
-
-            default:
-                return playerDownAnimation;
-        }
-    }
-
-    // Draw the player using the current directional animation.
-    private void drawPlayer(float delta) {
-
-        if (playerMoving && state == GameState.RUNNING) {
-
-            playerAnimationTimer += delta;
-
-        } else {
-
-// Show the first frame when standing still.
-            playerAnimationTimer = 0f;
-        }
-
-        currentPlayerFrame = getPlayerAnimation().getKeyFrame(
-            playerAnimationTimer
-        );
-
-        float spriteWidth = 46f;
-        float spriteHeight = 72f;
-
-        batch.begin();
-
-        batch.draw(
-            currentPlayerFrame,
-            playerX - spriteWidth / 2f,
-            playerY - spriteHeight / 2f,
-            spriteWidth,
-            spriteHeight
-        );
-
-        batch.end();
-    }
-
-// =========================================================
 // COLLIE HIDDEN EVENT
 // =========================================================
 
@@ -453,8 +272,8 @@ public class Main extends ApplicationAdapter {
         float zoneW = DOG_ZONE_W * scaleX;
         float zoneH = DOG_ZONE_H * scaleY;
 
-        if (playerX >= zoneX && playerX <= zoneX + zoneW
-            && playerY >= zoneY && playerY <= zoneY + zoneH) {
+        if (player.getX() >= zoneX && player.getX() <= zoneX + zoneW
+            && player.getY() >= zoneY && player.getY() <= zoneY + zoneH) {
 
             dogEventTriggered = true;
             eventsInteracted++;
@@ -471,8 +290,8 @@ public class Main extends ApplicationAdapter {
 
     private void startBreadThrow() {
 
-        breadStartX = playerX;
-        breadStartY = playerY;
+        breadStartX = player.getX();
+        breadStartY = player.getY();
 
         pickThrowTarget();
 
@@ -762,8 +581,6 @@ public class Main extends ApplicationAdapter {
             collisionManager.updateShieldGraceTimer(realDelta);
         }
 
-        float movement = playerSpeed * delta;
-
 
 // Let the inventory handle hotbar selection input.
         inventory.handleSelectionInput();
@@ -826,41 +643,7 @@ public class Main extends ApplicationAdapter {
 // Only move objects while game is running.
         if (state == GameState.RUNNING) {
 
-            float moveX = 0f;
-            float moveY = 0f;
-
-            if (Gdx.input.isKeyPressed(Input.Keys.W)) {
-                moveY += movement;
-            }
-
-            if (Gdx.input.isKeyPressed(Input.Keys.S)) {
-                moveY -= movement;
-            }
-
-            if (Gdx.input.isKeyPressed(Input.Keys.A)) {
-                moveX -= movement;
-            }
-
-            if (Gdx.input.isKeyPressed(Input.Keys.D)) {
-                moveX += movement;
-            }
-
-// Update player direction and animation state.
-            updatePlayerDirection(moveX, moveY);
-
-// Move player while the collision manager checks tree obstacles.
-            com.badlogic.gdx.math.Vector2 newPosition = collisionManager.movePlayer(
-                playerX,
-                playerY,
-                moveX,
-                moveY,
-                playerRadius,
-                Gdx.graphics.getWidth(),
-                Gdx.graphics.getHeight()
-            );
-
-            playerX = newPosition.x;
-            playerY = newPosition.y;
+            player.update(delta, collisionManager);
 
 // Spawn additional geese.
             updateGooseSpawning(delta);
@@ -877,9 +660,9 @@ public class Main extends ApplicationAdapter {
 // Check collisions with all geese.
             CollisionManager.GooseCollisionResult collisionResult =
                 collisionManager.checkGooseCollisions(
-                    playerX,
-                    playerY,
-                    playerRadius,
+                    player.getX(),
+                    player.getY(),
+                    player.getRadius(),
                     geese,
                     inventory
                 );
@@ -905,8 +688,8 @@ public class Main extends ApplicationAdapter {
             float screenH = Gdx.graphics.getHeight();
 
             if (!hiddenEventTriggered
-                && playerX > screenW - HIDDEN_ZONE_SIZE
-                && playerY > screenH - HIDDEN_ZONE_SIZE) {
+                && player.getX() > screenW - HIDDEN_ZONE_SIZE
+                && player.getY() > screenH - HIDDEN_ZONE_SIZE) {
 
                 hiddenEventTriggered = true;
                 eventsInteracted++;
@@ -945,7 +728,9 @@ public class Main extends ApplicationAdapter {
         }
 
 // Draw player sprite instead of the original blue circle.
-        drawPlayer(delta);
+        batch.begin();
+        player.draw(batch);
+        batch.end();
 
 // Shadow marking where bread will land.
         if (breadFlying) {
@@ -1252,13 +1037,10 @@ public class Main extends ApplicationAdapter {
 
         timeRemaining = GAME_DURATION;
 
-        playerX = Gdx.graphics.getWidth() / 2f;
-        playerY = Gdx.graphics.getHeight() / 2f;
-
-// Reset player animation.
-        playerAnimationTimer = 0f;
-        playerMoving = false;
-        playerFacingDirection = 0;
+        player.reset(
+            Gdx.graphics.getWidth() / 2f,
+            Gdx.graphics.getHeight() / 2f
+        );
 
 // Remove all additional geese.
         while (geese.size() > INITIAL_GOOSE_COUNT) {
@@ -1449,7 +1231,7 @@ public class Main extends ApplicationAdapter {
         mapTexture.dispose();
 
 // Dispose of player sprite sheet.
-        playerTexture.dispose();
+        player.dispose();
 
         dog.dispose();
 

@@ -16,6 +16,15 @@ public class GameContext {
     private int itemsUsed = 0;
     private int eventsInteracted = 0;
 
+    private float gooseSpeedMultipler = 1f;
+    public float getGooseSpeedMultipler() {
+        return gooseSpeedMultipler;
+    }
+
+    public void setGooseSpeedMultipler(float multiplier) {
+        gooseSpeedMultipler = multiplier;
+    }
+
     public GameContext(
         Player player,
         Inventory inventory,

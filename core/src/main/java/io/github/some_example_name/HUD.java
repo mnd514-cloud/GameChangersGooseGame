@@ -7,6 +7,7 @@ import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.GlyphLayout;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
+import java.util.List;
 
 // Draws everything shown on top of the game world: the timer and counters,
 // the start / pause / win / loss overlays, the instructions screen and the hotbar.
@@ -67,8 +68,7 @@ public class HUD {
         float timeRemaining,
         int itemsUsed,
         int eventsInteracted,
-        boolean speedBoostActive,
-        float speedBoostTimer
+        List<String> statusLines
     ) {
         float top = Gdx.graphics.getHeight() - MARGIN;
 
@@ -81,16 +81,12 @@ public class HUD {
         font.draw(batch, "Items used: " + itemsUsed, MARGIN, top - LINE_SPACING);
         font.draw(batch, "Events triggered: " + eventsInteracted, MARGIN, top - LINE_SPACING * 2);
 
-        if (speedBoostActive) {
-            font.setColor(1, 0.3f, 0.3f, 1);
-            font.draw(
-                batch,
-                "GEESE ENRAGED! " + (int) Math.ceil(speedBoostTimer) + "s",
-                MARGIN,
-                top - LINE_SPACING * 3
-            );
-            font.setColor(1, 1, 1, 1);
+        font.setColor(1, 0.3f, 0.3f, 1);
+        for (int i = 0; i < statusLines.size(); i++) {
+            font.draw(batch, statusLines.get(i), MARGIN, top - LINE_SPACING * (3 + i));
         }
+
+        font.setColor(1, 1, 1, 1);
 
         batch.end();
     }

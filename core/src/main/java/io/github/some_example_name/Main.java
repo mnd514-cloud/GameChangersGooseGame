@@ -10,6 +10,8 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Matrix4;
+import java.util.ArrayList;
+import java.util.List;
 
 import java.util.Random;
 
@@ -98,16 +100,8 @@ public class Main extends ApplicationAdapter {
     private float breadTargetX;
     private float breadTargetY;
 
-    // Hidden event
-    private boolean hiddenEventTriggered = false;
-    private static final float HIDDEN_ZONE_SIZE = 100f;
-
-    // Goose speed boost
-    private boolean speedBoostActive = false;
-    private float speedBoostTimer = 0f;
-
-    private static final float SPEED_BOOST_DURATION = 10f;
-    private static final float SPEED_BOOST_MULTIPLIER = 1.75f;
+    private final List<HiddenEvent> events = new ArrayList<>();
+    private final List<String> statusLines = new ArrayList<>();
 
     // Original map dimensions
     private static final float MAP_WIDTH = 1536f;
@@ -196,6 +190,9 @@ public class Main extends ApplicationAdapter {
 
         // Create the border collie
         dog = new Dog();
+
+        // Create hidden events
+        events.add(new GeeseEnrageEvent());
 
         // Create the shared game context
         ctx = new GameContext(
@@ -628,6 +625,10 @@ public class Main extends ApplicationAdapter {
             // Move all geese.
             updateGooseMovement(delta);
 
+            for (HiddenEvent event : events) {
+                event.update(delta, ctx);
+            }
+
             // Move the collie.
             dog.update(delta, ctx);
 
@@ -651,26 +652,6 @@ public class Main extends ApplicationAdapter {
                 Gdx.app.log("Game", "Survived - You Win");
             }
 
-            // Hidden event in the top-right corner.
-            float screenW = Gdx.graphics.getWidth();
-            float screenH = Gdx.graphics.getHeight();
-
-            if (!hiddenEventTriggered
-                && ctx.player.getX() > screenW - HIDDEN_ZONE_SIZE
-                && ctx.player.getY() > screenH - HIDDEN_ZONE_SIZE) {
-
-                hiddenEventTriggered = true;
-                ctx.recordEvent();
-
-                speedBoostActive = true;
-                speedBoostTimer = SPEED_BOOST_DURATION;
-
-                Gdx.app.log(
-                    "HiddenEvent",
-                    "geese speed boost event triggered"
-                );
-            }
-
         // Positive hidden event: sleeping collie.
             checkDogEvent();
         }
@@ -679,21 +660,13 @@ public class Main extends ApplicationAdapter {
         updateCursorVisibility();
 
         // Draw the hidden event.
-        if (hiddenEventTriggered) {
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
 
-            shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
-
-            shapeRenderer.setColor(0, 0, 1, 1);
-
-            shapeRenderer.rect(
-                Gdx.graphics.getWidth() - HIDDEN_ZONE_SIZE,
-                Gdx.graphics.getHeight() - HIDDEN_ZONE_SIZE,
-                HIDDEN_ZONE_SIZE,
-                HIDDEN_ZONE_SIZE
-            );
-
-            shapeRenderer.end();
+        for (HiddenEvent event : events) {
+            event.drawShapes(shapeRenderer);
         }
+
+        shapeRenderer.end();
 
         // Draw player sprite.
         batch.begin();
@@ -777,12 +750,21 @@ public class Main extends ApplicationAdapter {
         dog.draw(batch);
         batch.end();
 
+        statusLines.clear();
+
+        for (HiddenEvent event : events) {
+            String text = event.getStatusText();
+
+            if (text != null) {
+                statusLines.add(text);
+            }
+        }
+
         hud.drawStats(
             timeRemaining,
             ctx.getItemsUsed(),
             ctx.getEventsInteracted(),
-            speedBoostActive,
-            speedBoostTimer
+            statusLines
         );
 
         hud.drawScreen(state, started);
@@ -836,21 +818,8 @@ public class Main extends ApplicationAdapter {
             }
         }
 
-        // Update speed boost timer.
-        if (speedBoostActive) {
-
-            speedBoostTimer -= realDelta;
-
-            if (speedBoostTimer <= 0) {
-                speedBoostActive = false;
-            }
-        }
-
-        // Geese move faster during the boost.
-        float delta = speedBoostActive
-            ? realDelta * SPEED_BOOST_MULTIPLIER
-            : realDelta;
-
+        // Geese move faster while an event (e.g. enrage) boosts them
+        float delta = realDelta * ctx.getGooseSpeedMultipler();
 
         // Scale the circle surrounding bread with goose count.
         float ringRadius = Math.min(
@@ -944,11 +913,9 @@ public class Main extends ApplicationAdapter {
         // Reset collision protection period.
         collisionManager.resetShieldGraceTimer();
 
-        // Reset hidden event.
-        hiddenEventTriggered = false;
-
-        speedBoostActive = false;
-        speedBoostTimer = 0f;
+        for (HiddenEvent event: events) {
+            event.reset(ctx);
+        }
 
         // Reset the positive hidden event.
         dogEventTriggered = false;

@@ -1,6 +1,9 @@
+
 package io.github.some_example_name;
 
 import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 
 public class GeeseEnrageEvent implements HiddenEvent {
@@ -9,9 +12,17 @@ public class GeeseEnrageEvent implements HiddenEvent {
     private static final float DURATION = 10f;
     private static final float SPEED_MULTIPLIER = 1.75f;
 
+    private final Texture birdsNestTexture;
+
     private boolean triggered = false;
     private boolean active = false;
     private float timer = 0f;
+
+    public GeeseEnrageEvent() {
+        birdsNestTexture = new Texture(
+            Gdx.files.internal("bird_nest.png")
+        );
+    }
 
     @Override
     public void update(float delta, GameContext ctx) {
@@ -23,7 +34,7 @@ public class GeeseEnrageEvent implements HiddenEvent {
             active = true;
             timer = DURATION;
 
-            ctx.setGooseSpeedMultipler(SPEED_MULTIPLIER);
+            ctx.setGooseSpeedMultiplier(SPEED_MULTIPLIER);
             ctx.recordEvent();
 
             Gdx.app.log("HiddenEvent", "geese speed boost event triggered");
@@ -34,19 +45,24 @@ public class GeeseEnrageEvent implements HiddenEvent {
 
             if (timer <= 0f) {
                 active = false;
-                ctx.setGooseSpeedMultipler(1f);
+                ctx.setGooseSpeedMultiplier(1f);
             }
         }
     }
 
     @Override
     public void drawShapes(ShapeRenderer shapes) {
+        // No shape needed: the nest image replaces the blue square.
+    }
+
+    @Override
+    public void drawSprites(SpriteBatch batch) {
         if (!triggered) {
             return;
         }
 
-        shapes.setColor(0, 0, 1, 1);
-        shapes.rect(
+        batch.draw(
+            birdsNestTexture,
             Gdx.graphics.getWidth() - ZONE_SIZE,
             Gdx.graphics.getHeight() - ZONE_SIZE,
             ZONE_SIZE,
@@ -56,7 +72,9 @@ public class GeeseEnrageEvent implements HiddenEvent {
 
     @Override
     public String getStatusText() {
-        return active ? "GEESE ENRAGED! " + (int) Math.ceil(timer) + "s" : null;
+        return active
+            ? "GEESE ENRAGED! " + (int) Math.ceil(timer) + "s"
+            : null;
     }
 
     @Override
@@ -64,6 +82,11 @@ public class GeeseEnrageEvent implements HiddenEvent {
         triggered = false;
         active = false;
         timer = 0f;
-        ctx.setGooseSpeedMultipler(1f);
+        ctx.setGooseSpeedMultiplier(1f);
+    }
+
+    @Override
+    public void dispose() {
+        birdsNestTexture.dispose();
     }
 }

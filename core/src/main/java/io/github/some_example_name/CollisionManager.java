@@ -1,3 +1,4 @@
+
 package io.github.some_example_name;
 
 import com.badlogic.gdx.math.MathUtils;
@@ -12,8 +13,6 @@ import java.util.ArrayList;
  */
 public class CollisionManager {
 
-    private static final float MAP_WIDTH = 1536f;
-    private static final float MAP_HEIGHT = 1024f;
     private static final float SHIELD_GRACE_DURATION = 0.75f;
 
     private final ArrayList<Rectangle> treeObstacles = new ArrayList<>();
@@ -28,32 +27,37 @@ public class CollisionManager {
     }
 
     /** Rebuilds tree collision rectangles to match the current window size. */
-    public void createTreeCollisions(float screenWidth, float screenHeight) {
+    public void createTreeCollisions(
+        float screenWidth,
+        float screenHeight,
+        float mapWidth,
+        float mapHeight
+    ) {
 
         treeObstacles.clear();
 
-        float scaleX = screenWidth / MAP_WIDTH;
-        float scaleY = screenHeight / MAP_HEIGHT;
+        float scaleX = screenWidth / mapWidth;
+        float scaleY = screenHeight / mapHeight;
 
         // Top row
-        addTreeObstacle(52, 105, 36, 45, scaleX, scaleY);
-        addTreeObstacle(662, 95, 38, 60, scaleX, scaleY);
-        addTreeObstacle(1390, 115, 38, 60, scaleX, scaleY);
+        addTreeObstacle(52, 105, 36, 45, scaleX, scaleY, mapHeight);
+        addTreeObstacle(662, 95, 38, 60, scaleX, scaleY, mapHeight);
+        addTreeObstacle(1390, 115, 38, 60, scaleX, scaleY, mapHeight);
 
         // Middle row
-        addTreeObstacle(110, 295, 40, 65, scaleX, scaleY);
-        addTreeObstacle(977, 230, 38, 65, scaleX, scaleY);
-        addTreeObstacle(1195, 390, 40, 75, scaleX, scaleY);
+        addTreeObstacle(110, 295, 40, 65, scaleX, scaleY, mapHeight);
+        addTreeObstacle(977, 230, 38, 65, scaleX, scaleY, mapHeight);
+        addTreeObstacle(1195, 390, 40, 75, scaleX, scaleY, mapHeight);
 
         // Lower row
-        addTreeObstacle(200, 590, 40, 60, scaleX, scaleY);
-        addTreeObstacle(410, 680, 40, 55, scaleX, scaleY);
-        addTreeObstacle(910, 780, 40, 80, scaleX, scaleY);
-        addTreeObstacle(1460, 690, 40, 90, scaleX, scaleY);
+        addTreeObstacle(200, 590, 40, 60, scaleX, scaleY, mapHeight);
+        addTreeObstacle(410, 680, 40, 55, scaleX, scaleY, mapHeight);
+        addTreeObstacle(910, 780, 40, 80, scaleX, scaleY, mapHeight);
+        addTreeObstacle(1460, 690, 40, 90, scaleX, scaleY, mapHeight);
 
         // Bottom row
-        addTreeObstacle(60, 770, 40, 80, scaleX, scaleY);
-        addTreeObstacle(1240, 850, 40, 90, scaleX, scaleY);
+        addTreeObstacle(60, 770, 40, 80, scaleX, scaleY, mapHeight);
+        addTreeObstacle(1240, 850, 40, 90, scaleX, scaleY, mapHeight);
     }
 
     private void addTreeObstacle(
@@ -62,12 +66,13 @@ public class CollisionManager {
         float imageWidth,
         float imageHeight,
         float scaleX,
-        float scaleY
+        float scaleY,
+        float mapHeight
     ) {
         float x = imageX * scaleX;
 
         // Convert from image top-left coordinates to LibGDX bottom-left coordinates.
-        float y = (MAP_HEIGHT - imageY - imageHeight) * scaleY;
+        float y = (mapHeight - imageY - imageHeight) * scaleY;
 
         treeObstacles.add(new Rectangle(
             x,

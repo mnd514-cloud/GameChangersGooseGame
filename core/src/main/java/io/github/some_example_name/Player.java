@@ -100,6 +100,12 @@ public class Player {
         if (Gdx.input.isKeyPressed(Input.Keys.A)) moveX -= movement;
         if (Gdx.input.isKeyPressed(Input.Keys.D)) moveX += movement;
 
+        // Keep diagonal movement at the same overall speed as straight movement.
+        if (moveX != 0f && moveY != 0f) {
+            moveX *= 0.70710678f;
+            moveY *= 0.70710678f;
+        }
+
         updateDirection(moveX, moveY);
 
         // Let the collision manager stop the player walking through trees.

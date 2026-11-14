@@ -51,10 +51,16 @@ public class Inventory {
     }
 
     public String getItem(int slot) {
+        if (slot < 0 || slot >= items.length) {
+            return "";
+        }
         return items[slot];
     }
 
     public int getQuantity(int slot) {
+        if (slot < 0 || slot >= quantities.length) {
+            return 0;
+        }
         return quantities[slot];
     }
 

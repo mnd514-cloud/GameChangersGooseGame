@@ -1,3 +1,4 @@
+
 package io.github.some_example_name;
 
 import com.badlogic.gdx.ApplicationAdapter;
@@ -8,12 +9,10 @@ import com.badlogic.gdx.graphics.Cursor;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
-import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Matrix4;
+
 import java.util.ArrayList;
 import java.util.List;
-
-import java.util.Random;
 
 public class Main extends ApplicationAdapter {
 
@@ -24,6 +23,7 @@ public class Main extends ApplicationAdapter {
     private float timeRemaining = GAME_DURATION;
 
     private static final float MAX_FRAME_TIME = 0.05f;
+    private static final int INITIAL_GOOSE_COUNT = 4;
 
     // Game state
     private GameState state = GameState.PAUSED;
@@ -36,6 +36,11 @@ public class Main extends ApplicationAdapter {
     private CollisionManager collisionManager;
     private GameContext ctx;
 
+    private GooseSpawner gooseSpawner;
+    private BreadSystem breadSystem;
+    private GameRenderer gameRenderer;
+
+    // Rendering and HUD
     private HUD hud;
     private SpriteBatch batch;
 
@@ -45,67 +50,13 @@ public class Main extends ApplicationAdapter {
     private Texture greyGoose;
     private Texture redBreastedGoose;
 
-    // Item icons
     private Texture breadTexture;
     private Texture shieldTexture;
-
-    // Background map
     private Texture mapTexture;
 
-    // Goose spawning system
-    private final Random random = new Random();
-    private float spawnTimer = 0f;
-
-    private static final int INITIAL_GOOSE_COUNT = 4;
-
-    private static final float BASE_SPAWN_RATE = 0.5f;
-
-    // Goose spawning tuning
-    private static final float GOOSE_RADIUS = 22f;
-    private static final float MIN_GOOSE_SPEED = 150f;
-    private static final float GOOSE_SPEED_VARIATION = 70f;
-    private static final float MIN_CIRCLE_RADIUS = 50f;
-    private static final float CIRCLE_RADIUS_STEP = 15f;
-    private static final float CIRCLE_CENTRE_MIN = 0.3f;
-    private static final float CIRCLE_CENTRE_RANGE = 0.4f;
-    private static final float MIN_ANGULAR_SPEED = 0.8f;
-    private static final float ANGULAR_SPEED_VARIATION = 1.2f;
-    private static final float MAX_CIRCLE_RADIUS = 300f;
-
-    private float nextCircleRadius = MIN_CIRCLE_RADIUS;
-
-    // Geese attracted to bread
-    private boolean breadActive = false;
-    private float breadX;
-    private float breadY;
-    private float breadTimer = 0f;
-
-    // Bread tuning
-    private static final float BREAD_DURATION = 5f;
-    private static final float BREAD_SPEED = 250f;
-    private static final float BREAD_RING_BASE = 15f;
-    private static final float BREAD_RING_PER_GOOSE = 8f;
-    private static final float BREAD_RING_MAX = 200f;
-
-    // Bread throw tuning
-    private static final float BREAD_FLIGHT_TIME = 0.6f;
-    private static final float BREAD_ARC_HEIGHT = 120f;
-    private static final float BREAD_THROW_MIN = 150f;
-    private static final float BREAD_THROW_MAX = 350f;
-
-    private boolean breadFlying = false;
-    private float breadFlightTimer;
-    private float breadStartX;
-    private float breadStartY;
-    private float breadTargetX;
-    private float breadTargetY;
-
+    // Hidden events
     private final List<HiddenEvent> events = new ArrayList<>();
     private final List<String> statusLines = new ArrayList<>();
-
-    // Original map dimensions
-    private static final float MAP_WIDTH = 1536f;
-    private static final float MAP_HEIGHT = 1024f;
 
     // Collie positive hidden event
     private static final float DOG_ZONE_X = 470f;
@@ -116,9 +67,10 @@ public class Main extends ApplicationAdapter {
     private Dog dog;
     private boolean dogEventTriggered = false;
 
-// =========================================================
-// CREATE
-// =========================================================
+
+    // =========================================================
+    // CREATE
+    // =========================================================
 
     @Override
     public void create() {
@@ -173,19 +125,25 @@ public class Main extends ApplicationAdapter {
             Texture.TextureFilter.Nearest
         );
 
-
         // Create rendering objects
         shapeRenderer = new ShapeRenderer();
         cameraMatrix = new Matrix4();
 
         batch = new SpriteBatch();
-        hud = new HUD(batch, shapeRenderer, breadTexture, shieldTexture);
 
+        hud = new HUD(
+            batch,
+            shapeRenderer,
+            breadTexture,
+            shieldTexture
+        );
 
         // Create tree collision areas
         collisionManager.createTreeCollisions(
             Gdx.graphics.getWidth(),
-            Gdx.graphics.getHeight()
+            Gdx.graphics.getHeight(),
+            mapTexture.getWidth(),
+            mapTexture.getHeight()
         );
 
         // Create the border collie
@@ -194,7 +152,7 @@ public class Main extends ApplicationAdapter {
         // Create hidden events
         events.add(new GeeseEnrageEvent());
 
-        // Create the shared game context
+        // Create shared game context
         ctx = new GameContext(
             new Player(
                 Gdx.graphics.getWidth() / 2f,
@@ -209,19 +167,19 @@ public class Main extends ApplicationAdapter {
         ctx.geese.add(new Goose(
             normalGoose,
             MovementType.HORIZONTAL,
-            100f, 400f, 200f, GOOSE_RADIUS
+            100f, 400f, 200f, 22f
         ));
 
         ctx.geese.add(new Goose(
             greyGoose,
             MovementType.VERTICAL,
-            400f, 100f, 150f, GOOSE_RADIUS
+            400f, 100f, 150f, 22f
         ));
 
         ctx.geese.add(new Goose(
             flyingGoose,
             MovementType.DIAGONAL,
-            200f, 200f, 180f, GOOSE_RADIUS
+            200f, 200f, 180f, 22f
         ));
 
         ctx.geese.add(new Goose(
@@ -230,15 +188,37 @@ public class Main extends ApplicationAdapter {
             Gdx.graphics.getHeight() * 0.5f,
             80f,
             1.5f,
-            GOOSE_RADIUS
+            22f
         ));
+
+        // Initialise gameplay systems
+        gooseSpawner = new GooseSpawner(
+            normalGoose,
+            flyingGoose,
+            greyGoose,
+            redBreastedGoose
+        );
+
+        breadSystem = new BreadSystem(breadTexture);
+
+        // Initialise world renderer
+        gameRenderer = new GameRenderer(
+            shapeRenderer,
+            batch,
+            mapTexture,
+            ctx,
+            dog,
+            events,
+            breadSystem
+        );
 
         updateProjection();
     }
 
-// =========================================================
-// COLLIE HIDDEN EVENT
-// =========================================================
+
+    // =========================================================
+    // COLLIE HIDDEN EVENT
+    // =========================================================
 
     private void checkDogEvent() {
 
@@ -246,93 +226,54 @@ public class Main extends ApplicationAdapter {
             return;
         }
 
-        float scaleX = Gdx.graphics.getWidth() / MAP_WIDTH;
-        float scaleY = Gdx.graphics.getHeight() / MAP_HEIGHT;
+        float mapWidth = mapTexture.getWidth();
+        float mapHeight = mapTexture.getHeight();
+
+        float scaleX = Gdx.graphics.getWidth() / mapWidth;
+        float scaleY = Gdx.graphics.getHeight() / mapHeight;
 
         float zoneX = DOG_ZONE_X * scaleX;
-        float zoneY = (MAP_HEIGHT - DOG_ZONE_Y - DOG_ZONE_H) * scaleY;
+        float zoneY = (mapHeight - DOG_ZONE_Y - DOG_ZONE_H) * scaleY;
         float zoneW = DOG_ZONE_W * scaleX;
         float zoneH = DOG_ZONE_H * scaleY;
 
-        if (ctx.player.getX() >= zoneX && ctx.player.getX() <= zoneX + zoneW
-            && ctx.player.getY() >= zoneY && ctx.player.getY() <= zoneY + zoneH) {
+        if (ctx.player.getX() >= zoneX
+            && ctx.player.getX() <= zoneX + zoneW
+            && ctx.player.getY() >= zoneY
+            && ctx.player.getY() <= zoneY + zoneH) {
 
             dogEventTriggered = true;
             ctx.recordEvent();
 
-            dog.start(zoneX + zoneW / 2f, zoneY + zoneH / 2f);
+            dog.start(
+                zoneX + zoneW / 2f,
+                zoneY + zoneH / 2f
+            );
 
-            Gdx.app.log("HiddenEvent", "collie has awakened!");
+            Gdx.app.log(
+                "HiddenEvent",
+                "collie has awakened!"
+            );
         }
     }
 
-// =========================================================
-// BREAD THROWING
-// =========================================================
 
-    private void startBreadThrow() {
-
-        breadStartX = ctx.player.getX();
-        breadStartY = ctx.player.getY();
-
-        pickThrowTarget();
-
-        breadFlightTimer = 0f;
-        breadFlying = true;
-    }
-
-    private void pickThrowTarget() {
-
-        float angle = random.nextFloat() * MathUtils.PI2;
-
-        float distance = BREAD_THROW_MIN
-            + random.nextFloat() * (BREAD_THROW_MAX - BREAD_THROW_MIN);
-
-        breadTargetX = MathUtils.clamp(
-            breadStartX + distance * MathUtils.cos(angle),
-            0f,
-            Gdx.graphics.getWidth()
-        );
-
-        breadTargetY = MathUtils.clamp(
-            breadStartY + distance * MathUtils.sin(angle),
-            0f,
-            Gdx.graphics.getHeight()
-        );
-    }
-
-    private void updateBreadFlight(float delta) {
-
-        if (!breadFlying) {
-            return;
-        }
-
-        breadFlightTimer += delta;
-
-        if (breadFlightTimer >= BREAD_FLIGHT_TIME) {
-
-            breadFlying = false;
-            breadActive = true;
-            breadX = breadTargetX;
-            breadY = breadTargetY;
-            breadTimer = BREAD_DURATION;
-        }
-    }
-
-// =========================================================
-// CAMERA AND PROJECTION
-// =========================================================
+    // =========================================================
+    // CAMERA AND PROJECTION
+    // =========================================================
 
     private void updateProjection() {
 
         Gdx.gl.glViewport(
-            0, 0,
+            0,
+            0,
             Gdx.graphics.getWidth(),
             Gdx.graphics.getHeight()
         );
 
         cameraMatrix.setToOrtho2D(
-            0, 0,
+            0,
+            0,
             Gdx.graphics.getWidth(),
             Gdx.graphics.getHeight()
         );
@@ -341,172 +282,10 @@ public class Main extends ApplicationAdapter {
         batch.setProjectionMatrix(cameraMatrix);
     }
 
-// =========================================================
-// GOOSE SPAWNING
-// =========================================================
 
-    private float calculateSpawnRate() {
-
-        float elapsedMinutes = (GAME_DURATION - timeRemaining) / 60f;
-
-        return BASE_SPAWN_RATE
-            + (0.01f * elapsedMinutes)
-            + (0.005f * elapsedMinutes * elapsedMinutes);
-    }
-
-    private void updateGooseSpawning(float delta) {
-
-        spawnTimer += delta;
-
-        float spawnRate = calculateSpawnRate();
-        float spawnInterval = 1f / spawnRate;
-
-        while (spawnTimer >= spawnInterval) {
-
-            spawnTimer -= spawnInterval;
-            spawnGoose();
-        }
-    }
-
-    private void spawnGoose() {
-
-        float width = Gdx.graphics.getWidth();
-        float height = Gdx.graphics.getHeight();
-
-        float radius = GOOSE_RADIUS;
-
-        float speed = MIN_GOOSE_SPEED
-            + random.nextFloat() * GOOSE_SPEED_VARIATION;
-
-        int choice = random.nextInt(4);
-
-        Goose newGoose;
-
-        switch (choice) {
-
-            case 0: {
-
-                boolean fromLeft = random.nextBoolean();
-
-                newGoose = new Goose(
-                    normalGoose,
-                    MovementType.HORIZONTAL,
-                    fromLeft ? radius : width - radius,
-                    radius + random.nextFloat() * (height - radius * 2),
-                    speed,
-                    radius
-                );
-
-                newGoose.setDirection(fromLeft ? 1 : -1, 1);
-
-                break;
-            }
-
-            case 1: {
-
-                boolean fromBottom = random.nextBoolean();
-
-                newGoose = new Goose(
-                    greyGoose,
-                    MovementType.VERTICAL,
-                    radius + random.nextFloat() * (width - radius * 2),
-                    fromBottom ? radius : height - radius,
-                    speed,
-                    radius
-                );
-
-                newGoose.setDirection(1, fromBottom ? 1 : -1);
-
-                break;
-            }
-
-            case 2: {
-
-                boolean leftSide = random.nextBoolean();
-                boolean bottomSide = random.nextBoolean();
-
-                newGoose = new Goose(
-                    flyingGoose,
-                    MovementType.DIAGONAL,
-                    leftSide ? radius : width - radius,
-                    bottomSide ? radius : height - radius,
-                    speed,
-                    radius
-                );
-
-                newGoose.setDirection(
-                    leftSide ? 1 : -1,
-                    bottomSide ? 1 : -1
-                );
-
-                break;
-            }
-
-            default: {
-
-                float centerX = width * (
-                    CIRCLE_CENTRE_MIN
-                        + random.nextFloat() * CIRCLE_CENTRE_RANGE
-                );
-
-                float centerY = height * (
-                    CIRCLE_CENTRE_MIN
-                        + random.nextFloat() * CIRCLE_CENTRE_RANGE
-                );
-
-                float orbitRadius = nextCircleRadius;
-
-                nextCircleRadius += CIRCLE_RADIUS_STEP;
-
-                if (nextCircleRadius > MAX_CIRCLE_RADIUS) {
-                    nextCircleRadius = MIN_CIRCLE_RADIUS;
-                }
-
-                float margin = orbitRadius + radius;
-
-                centerX = MathUtils.clamp(
-                    centerX,
-                    margin,
-                    width - margin
-                );
-
-                centerY = MathUtils.clamp(
-                    centerY,
-                    margin,
-                    height - margin
-                );
-
-                float angularSpeed = MIN_ANGULAR_SPEED
-                    + random.nextFloat() * ANGULAR_SPEED_VARIATION;
-
-                newGoose = new Goose(
-                    redBreastedGoose,
-                    centerX,
-                    centerY,
-                    orbitRadius,
-                    angularSpeed,
-                    radius
-                );
-
-                newGoose.setCircleAngle(
-                    random.nextFloat() * (float) (Math.PI * 2)
-                );
-
-                break;
-            }
-        }
-
-        ctx.geese.add(newGoose);
-
-        Gdx.app.log(
-            "GooseSpawner",
-            "New goose spawned! Total geese: " + ctx.geese.size()
-        );
-    }
-
-// =========================================================
-// WINDOW RESIZING
-// =========================================================
+    // =========================================================
+    // WINDOW RESIZING
+    // =========================================================
 
     @Override
     public void resize(int width, int height) {
@@ -516,14 +295,21 @@ public class Main extends ApplicationAdapter {
         }
 
         updateProjection();
+
         ctx.setWorldSize(width, height);
 
-        collisionManager.createTreeCollisions(width, height);
+        collisionManager.createTreeCollisions(
+            width,
+            height,
+            mapTexture.getWidth(),
+            mapTexture.getHeight()
+        );
     }
 
-// =========================================================
-// MAIN GAME LOOP
-// =========================================================
+
+    // =========================================================
+    // MAIN GAME LOOP
+    // =========================================================
 
     @Override
     public void render() {
@@ -540,19 +326,6 @@ public class Main extends ApplicationAdapter {
         float realDelta = Gdx.graphics.getDeltaTime();
         float delta = Math.min(realDelta, MAX_FRAME_TIME);
 
-        // Draw background map
-        batch.begin();
-
-        batch.draw(
-            mapTexture,
-            0,
-            0,
-            Gdx.graphics.getWidth(),
-            Gdx.graphics.getHeight()
-        );
-
-        batch.end();
-
         // Countdown uses real elapsed time.
         if (state == GameState.RUNNING) {
 
@@ -564,13 +337,26 @@ public class Main extends ApplicationAdapter {
             collisionManager.updateShieldGraceTimer(realDelta);
         }
 
-        if (state == GameState.RUNNING && !breadFlying) {
+        // Handle item use.
+        if (state == GameState.RUNNING
+            && !breadSystem.isFlying()) {
+
             String itemUsed = ctx.inventory.handleItemUseInput();
 
             if (itemUsed != null) {
+
                 ctx.recordItemUsed();
-                startBreadThrow();
-                Gdx.app.log("Inventory", "Threw bread!");
+
+                breadSystem.startThrow(
+                    ctx.player,
+                    Gdx.graphics.getWidth(),
+                    Gdx.graphics.getHeight()
+                );
+
+                Gdx.app.log(
+                    "Inventory",
+                    "Threw bread!"
+                );
             }
         }
 
@@ -611,20 +397,31 @@ public class Main extends ApplicationAdapter {
             state = GameState.RUNNING;
         }
 
-        // Only move objects while game is running.
+        // Update gameplay.
         if (state == GameState.RUNNING) {
 
             ctx.player.update(delta, collisionManager);
 
             // Spawn additional geese.
-            updateGooseSpawning(delta);
+            gooseSpawner.update(
+                delta,
+                timeRemaining,
+                ctx,
+                Gdx.graphics.getWidth(),
+                Gdx.graphics.getHeight()
+            );
 
-            // Advance thrown bread.
-            updateBreadFlight(delta);
+            // Update bread flight and goose attraction.
+            breadSystem.updateFlight(delta);
 
-            // Move all geese.
-            updateGooseMovement(delta);
+            breadSystem.updateGeese(
+                delta,
+                ctx,
+                Gdx.graphics.getWidth(),
+                Gdx.graphics.getHeight()
+            );
 
+            // Update hidden events.
             for (HiddenEvent event : events) {
                 event.update(delta, ctx);
             }
@@ -636,123 +433,54 @@ public class Main extends ApplicationAdapter {
             CollisionManager.GooseCollisionResult collisionResult =
                 collisionManager.checkGooseCollisions(ctx);
 
-            if (collisionResult == CollisionManager.GooseCollisionResult.SHIELD_BLOCKED) {
+            if (collisionResult
+                == CollisionManager.GooseCollisionResult.SHIELD_BLOCKED) {
+
                 ctx.recordItemUsed();
-                Gdx.app.log("Inventory", "Shield blocked a goose attack!");
-            } else if (collisionResult == CollisionManager.GooseCollisionResult.PLAYER_HIT) {
+
+                Gdx.app.log(
+                    "Inventory",
+                    "Shield blocked a goose attack!"
+                );
+
+            } else if (collisionResult
+                == CollisionManager.GooseCollisionResult.PLAYER_HIT) {
+
                 state = GameState.LOST;
-                Gdx.app.log("Game", "The geese caught you!");
+
+                Gdx.app.log(
+                    "Game",
+                    "The geese caught you!"
+                );
             }
 
             // Check for a win.
-            if (state == GameState.RUNNING && timeRemaining <= 0) {
+            if (state == GameState.RUNNING
+                && timeRemaining <= 0) {
 
                 state = GameState.WON;
 
-                Gdx.app.log("Game", "Survived - You Win");
+                Gdx.app.log(
+                    "Game",
+                    "Survived - You Win"
+                );
             }
 
-        // Positive hidden event: sleeping collie.
+            // Check the positive hidden event.
             checkDogEvent();
         }
 
         // Update mouse visibility.
         updateCursorVisibility();
 
-        // Draw the hidden event.
-        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+        // Render the game world.
+        gameRenderer.render();
 
-        for (HiddenEvent event : events) {
-            event.drawShapes(shapeRenderer);
-        }
-
-        shapeRenderer.end();
-
-        // Draw player sprite.
-        batch.begin();
-        ctx.player.draw(batch);
-        batch.end();
-
-        // Shadow marking where bread will land.
-        if (breadFlying) {
-
-            Gdx.gl.glEnable(GL20.GL_BLEND);
-
-            shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
-            shapeRenderer.setColor(0, 0, 0, 0.35f);
-
-            shapeRenderer.ellipse(
-                breadTargetX - 14f,
-                breadTargetY - 7f,
-                28f,
-                14f
-            );
-
-            shapeRenderer.end();
-
-            Gdx.gl.glDisable(GL20.GL_BLEND);
-        }
-
-        // Draw bread, geese, the HUD and the collie.
-        batch.begin();
-
-        // Show bread at its landing position.
-        if (breadActive) {
-
-            float droppedBreadSize = 36f;
-
-            batch.draw(
-                breadTexture,
-                breadX - droppedBreadSize / 2f,
-                breadY - droppedBreadSize / 2f,
-                droppedBreadSize,
-                droppedBreadSize
-            );
-        }
-
-        // Draw bread in flight.
-        if (breadFlying) {
-
-            float t = breadFlightTimer / BREAD_FLIGHT_TIME;
-
-            float groundX = MathUtils.lerp(
-                breadStartX,
-                breadTargetX,
-                t
-            );
-
-            float groundY = MathUtils.lerp(
-                breadStartY,
-                breadTargetY,
-                t
-            );
-
-            float arc = 4f * t * (1f - t);
-            float height = arc * BREAD_ARC_HEIGHT;
-
-            float breadSize = 36f;
-
-            batch.draw(
-                breadTexture,
-                groundX - breadSize / 2f,
-                groundY + height - breadSize / 2f,
-                breadSize,
-                breadSize
-            );
-        }
-
-        // Draw all geese.
-        for (Goose goose : ctx.geese) {
-            goose.draw(batch);
-        }
-
-        // Draw the collie.
-        dog.draw(batch);
-        batch.end();
-
+        // Collect hidden-event status messages.
         statusLines.clear();
 
         for (HiddenEvent event : events) {
+
             String text = event.getStatusText();
 
             if (text != null) {
@@ -760,6 +488,7 @@ public class Main extends ApplicationAdapter {
             }
         }
 
+        // Draw HUD.
         hud.drawStats(
             timeRemaining,
             ctx.getItemsUsed(),
@@ -774,9 +503,10 @@ public class Main extends ApplicationAdapter {
         }
     }
 
-// =========================================================
-// PLAYER AND GOOSE GAMEPLAY
-// =========================================================
+
+    // =========================================================
+    // PLAYER AND GAME STATE
+    // =========================================================
 
     private void updateCursorVisibility() {
 
@@ -801,73 +531,6 @@ public class Main extends ApplicationAdapter {
         }
     }
 
-    private void updateGooseMovement(float realDelta) {
-
-        // Update bread distraction timer.
-        if (breadActive) {
-
-            breadTimer -= realDelta;
-
-            if (breadTimer <= 0) {
-
-                breadActive = false;
-
-                for (Goose goose : ctx.geese) {
-                    goose.stopFleeing();
-                }
-            }
-        }
-
-        // Geese move faster while an event (e.g. enrage) boosts them
-        float delta = realDelta * ctx.getGooseSpeedMultipler();
-
-        // Scale the circle surrounding bread with goose count.
-        float ringRadius = Math.min(
-            BREAD_RING_BASE + ctx.geese.size() * BREAD_RING_PER_GOOSE,
-            BREAD_RING_MAX
-        );
-
-        // Move every goose.
-        for (int i = 0; i < ctx.geese.size(); i++) {
-
-            Goose goose = ctx.geese.get(i);
-
-            if (breadActive) {
-
-                // Spread geese around the bread.
-                float angle = (float) (
-                    2 * Math.PI * i / ctx.geese.size()
-                );
-
-                float targetX = MathUtils.clamp(
-                    breadX + ringRadius * (float) Math.cos(angle),
-                    GOOSE_RADIUS,
-                    Gdx.graphics.getWidth() - GOOSE_RADIUS
-                );
-
-                float targetY = MathUtils.clamp(
-                    breadY + ringRadius * (float) Math.sin(angle),
-                    GOOSE_RADIUS,
-                    Gdx.graphics.getHeight() - GOOSE_RADIUS
-                );
-
-                goose.lureTowards(
-                    targetX,
-                    targetY,
-                    BREAD_SPEED * delta
-                );
-
-            } else {
-
-                goose.update(delta, ctx.getWorldWidth(), ctx.getWorldHeight());
-            }
-        }
-    }
-
-// =========================================================
-// GAME STATE
-// =========================================================
-
     private void togglePause() {
 
         if (state == GameState.RUNNING) {
@@ -889,31 +552,26 @@ public class Main extends ApplicationAdapter {
             Gdx.graphics.getHeight() / 2f
         );
 
-        // Remove all additional geese.
+        // Remove additional geese.
         while (ctx.geese.size() > INITIAL_GOOSE_COUNT) {
 
             ctx.geese.remove(ctx.geese.size() - 1);
         }
 
-        // Reset original four geese.
+        // Reset original geese.
         for (Goose goose : ctx.geese) {
             goose.reset();
         }
 
-        // Reset spawning system.
-        spawnTimer = 0f;
-        nextCircleRadius = MIN_CIRCLE_RADIUS;
+        // Reset spawning and bread systems.
+        gooseSpawner.reset();
+        breadSystem.reset();
 
-        // Reset bread.
-        breadActive = false;
-        breadTimer = 0f;
-        breadFlying = false;
-        breadFlightTimer = 0f;
-
-        // Reset collision protection period.
+        // Reset collision protection.
         collisionManager.resetShieldGraceTimer();
 
-        for (HiddenEvent event: events) {
+        // Reset hidden events.
+        for (HiddenEvent event : events) {
             event.reset(ctx);
         }
 
@@ -921,16 +579,15 @@ public class Main extends ApplicationAdapter {
         dogEventTriggered = false;
         dog.reset();
 
-        // Reset inventory.
+        // Reset inventory and statistics.
         ctx.inventory.reset();
-
-        // Reset statistics.
         ctx.resetStats();
     }
 
-// =========================================================
-// PAUSE AND DISPOSE
-// =========================================================
+
+    // =========================================================
+    // PAUSE AND DISPOSE
+    // =========================================================
 
     @Override
     public void pause() {
@@ -956,11 +613,14 @@ public class Main extends ApplicationAdapter {
 
         breadTexture.dispose();
         shieldTexture.dispose();
-
         mapTexture.dispose();
 
-        // Dispose of player sprite sheet.
+        // Dispose of player sprite sheet and hidden-event assets.
         ctx.player.dispose();
+
+        for (HiddenEvent event : events) {
+            event.dispose();
+        }
 
         dog.dispose();
 

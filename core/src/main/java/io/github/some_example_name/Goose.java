@@ -84,17 +84,21 @@ public class Goose {
 
             case HORIZONTAL:
                 x += speed * xDirection * delta;
+                x = MathUtils.clamp(x, radius, width - radius);
                 xDirection = bounce(x, xDirection, width);
                 break;
 
             case VERTICAL:
                 y += speed * yDirection * delta;
+                y = MathUtils.clamp(y, radius, height - radius);
                 yDirection = bounce(y, yDirection, height);
                 break;
 
             case DIAGONAL:
                 x += speed * xDirection * delta;
                 y += speed * yDirection * delta;
+                x = MathUtils.clamp(x, radius, width - radius);
+                y = MathUtils.clamp(y, radius, height - radius);
                 xDirection = bounce(x, xDirection, width);
                 yDirection = bounce(y, yDirection, height);
                 break;

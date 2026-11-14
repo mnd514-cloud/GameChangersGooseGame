@@ -629,17 +629,11 @@ public class Main extends ApplicationAdapter {
             updateGooseMovement(delta);
 
             // Move the collie.
-            dog.update(delta, ctx.geese);
+            dog.update(delta, ctx);
 
             // Check collisions with all geese.
             CollisionManager.GooseCollisionResult collisionResult =
-                collisionManager.checkGooseCollisions(
-                    ctx.player.getX(),
-                    ctx.player.getY(),
-                    ctx.player.getRadius(),
-                    ctx.geese,
-                    ctx.inventory
-                );
+                collisionManager.checkGooseCollisions(ctx);
 
             if (collisionResult == CollisionManager.GooseCollisionResult.SHIELD_BLOCKED) {
                 ctx.recordItemUsed();
@@ -896,7 +890,7 @@ public class Main extends ApplicationAdapter {
 
             } else {
 
-                goose.update(delta);
+                goose.update(delta, ctx.getWorldWidth(), ctx.getWorldHeight());
             }
         }
     }

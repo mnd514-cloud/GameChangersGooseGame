@@ -5,7 +5,6 @@ import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.math.Vector2;
 
 import java.util.ArrayList;
-import java.util.List;
 
 /**
  * Handles world collision detection and collision response.
@@ -144,24 +143,22 @@ public class CollisionManager {
     }
 
     /** Checks player/goose collisions and consumes a shield when one is available. */
-    public GooseCollisionResult checkGooseCollisions(
-        float playerX,
-        float playerY,
-        float playerRadius,
-        List<Goose> geese,
-        Inventory inventory
-    ) {
+    public GooseCollisionResult checkGooseCollisions(GameContext ctx) {
         if (shieldGraceTimer > 0f) {
             return GooseCollisionResult.NONE;
         }
 
-        for (Goose goose : geese) {
-            if (!goose.collidesWith(playerX, playerY, playerRadius)) {
+        for (Goose goose : ctx.geese) {
+            if (!goose.collidesWith(
+                ctx.player.getX(),
+                ctx.player.getY(),
+                ctx.player.getRadius()
+            )) {
                 continue;
             }
 
-            if (inventory.hasShield()) {
-                inventory.consumeShield();
+            if (ctx.inventory.hasShield()) {
+                ctx.inventory.consumeShield();
                 goose.disperse();
                 shieldGraceTimer = SHIELD_GRACE_DURATION;
                 return GooseCollisionResult.SHIELD_BLOCKED;

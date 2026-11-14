@@ -1,6 +1,5 @@
 package io.github.some_example_name;
 
-import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.math.MathUtils;
@@ -76,13 +75,10 @@ public class Goose {
     }
 
     // Normal movement called every frame
-    public void update(float delta) {
+    public void update(float delta, float width, float height) {
         if (state != GooseState.NORMAL) {
             return;
         }
-
-        float width = Gdx.graphics.getWidth();
-        float height = Gdx.graphics.getHeight();
 
         switch (movementType) {
 

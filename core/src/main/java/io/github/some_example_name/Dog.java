@@ -59,7 +59,7 @@ public class Dog {
         active = false;
     }
 
-    public void update(float delta, List<Goose> geese) {
+    public void update(float delta, GameContext ctx) {
 
         if (!active) {
             return;
@@ -69,16 +69,16 @@ public class Dog {
         barkTimer = Math.max(0f, barkTimer - delta);
         timeLeft -= delta;
 
-        Goose target = timeLeft > 0f ? nearestGoose(geese) : null;
+        Goose target = timeLeft > 0f ? nearestGoose(ctx.geese) : null;
 
         if (target != null) {
 
             moveTowards(target.getX(), target.getY(), SPEED * delta);
-            catchGeese(geese);
+            catchGeese(ctx.geese);
 
         } else {
 
-            float width = Gdx.graphics.getWidth();
+            float width = ctx.getWorldWidth();
             float exitX = x < width / 2f ? -DRAW_SIZE * 2f : width + DRAW_SIZE * 2f;
 
             moveTowards(exitX, y, SPEED * delta);

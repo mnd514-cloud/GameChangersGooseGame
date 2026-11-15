@@ -1,0 +1,78 @@
+@startuml 02-entities-items
+title Goose Patrol - Entities and inventory
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+hide empty members
+
+abstract class Entity {
+  #position : Vector2
+  #bounds : Rectangle
+  +update(delta : float)
+}
+class Player {
+  -speed : float
+  -facing : Direction
+  +move(direction : Vector2, delta : float)
+  +pickUp(pickup : PickupItem)
+}
+class Goose {
+  -speed : float
+  -state : GooseState
+  +chase(player : Player)
+  +followLure(lure : BreadLure)
+  +feed()
+  +disperse()
+}
+enum GooseState {
+  CHASING
+  DISTRACTED
+  FED
+  DISPERSED
+}
+class PickupItem {
+  -collected : boolean
+  +collect() : Item
+}
+class BreadLure {
+  -remainingSeconds : float
+  +isActive() : boolean
+}
+class Inventory {
+  -capacity : int
+  +add(item : Item) : boolean
+  +use(slot : int, world : GameWorld, player : Player, target : Vector2) : boolean
+  +isFull() : boolean
+}
+abstract class Item {
+  #name : String
+  #usesLeft : int
+  +use(world : GameWorld, player : Player, target : Vector2) : boolean
+}
+class BreadItem {
+  +use(world : GameWorld, player : Player, target : Vector2) : boolean
+}
+class SnackItem {
+  +use(world : GameWorld, player : Player, target : Vector2) : boolean
+}
+class GameWorld {
+  +spawnLure(target : Vector2)
+  +feedNearbyGeese(position : Vector2)
+}
+
+Entity <|-- Player
+Entity <|-- Goose
+Entity <|-- PickupItem
+Entity <|-- BreadLure
+Player *-- "1" Inventory
+Inventory *-- "0..*" Item : owns
+PickupItem --> "0..1" Item : holds before collection
+Item <|-- BreadItem
+Item <|-- SnackItem
+Goose --> GooseState : state
+Goose ..> Player : chases
+Goose ..> BreadLure : follows
+BreadItem ..> GameWorld : spawns lure
+SnackItem ..> GameWorld : feeds nearby geese
+
+
+@enduml

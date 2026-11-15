@@ -54,6 +54,7 @@ enum GameState {
 class GameWorld
 class Player
 
+
 ' ---- relationships ----
 GameWorld *-- "1" GameTimer
 GameWorld *-- "1" ScoreTracker
@@ -62,5 +63,10 @@ GameWorld --> "1" GameState : state
 
 HUD ..> GameWorld : reads
 InputHandler ..> Player : controls
+
+' ---- additional relationships ----
+GameWorld --> Player : updates
+GameWorld --> HUD : displays
+
 
 @enduml

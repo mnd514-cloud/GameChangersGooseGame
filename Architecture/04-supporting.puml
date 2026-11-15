@@ -1,0 +1,65 @@
+@startuml 04-supporting
+title Goose Patrol - Supporting game systems
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+hide empty members
+
+class GameTimer {
+  -remainingSeconds : float = 300
+  +reset()
+  +tick(delta : float)
+  +isExpired() : boolean
+}
+class ProgressTracker {
+  -itemsUsed : int
+  -eventsTriggered : int
+  -geeseDispersed : int
+  +onItemUsed()
+  +onEventTriggered()
+  +onGooseDispersed()
+}
+class GameMap {
+  -bounds : Rectangle
+  -obstacles : List~Rectangle~
+  +isWalkable(position : Vector2) : boolean
+  +getSpawnPoint() : Vector2
+}
+class GooseSpawner {
+  -elapsedSeconds : float
+  +update(delta : float, world : GameWorld)
+  +calculateInterval(elapsed : float) : float
+}
+class HUD {
+  +draw(world : GameWorld)
+}
+class InputHandler {
+  +poll(world : GameWorld, delta : float)
+  +pausePressed() : boolean
+}
+enum GameState {
+  PAUSED
+  RUNNING
+  WON
+  LOST
+}
+class GameWorld {
+  -state : GameState
+  +start()
+  +togglePause()
+  +update(delta : float)
+  +movePlayer(direction : Vector2, delta : float)
+  +useItem(slot : int, target : Vector2) : boolean
+  +checkEndState()
+}
+
+GameWorld *-- "1" GameTimer
+GameWorld *-- "1" ProgressTracker
+GameWorld *-- "1" GameMap
+GameWorld *-- "1" GooseSpawner
+GameWorld --> GameState : state
+HUD ..> GameWorld : reads
+InputHandler ..> GameWorld : sends commands
+GooseSpawner ..> GameWorld : spawns geese
+
+
+@enduml

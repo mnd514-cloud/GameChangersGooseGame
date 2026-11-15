@@ -1,0 +1,70 @@
+@startuml
+title Goose Patrol - 1. Overview
+
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+hide empty members
+
+' ---- classes ----
+class GameTimer {
+  - remaining : float
+  - running : boolean
+  + start()
+  + pause()
+  + resume()
+  + tick(delta)
+  + isExpired() : boolean
+}
+
+class ScoreTracker {
+  - itemsUsed : int
+  - eventsTriggered : int
+  - geeseDispersed : int
+  + onItemUsed()
+  + onEventTriggered()
+  + calculateScore() : int
+}
+
+class GameMap {
+  - tiledMap : TiledMap
+  - bounds : Rectangle
+  - collisionLayer
+  + isWalkable(x, y) : boolean
+  + getSpawnPoint()
+}
+
+class HUD {
+  + draw(world)
+}
+
+class InputHandler {
+  + poll(player)
+  + pausePressed() : boolean
+}
+
+enum GameState {
+  PAUSED
+  RUNNING
+  WON
+  LOST
+}
+
+' name-only boxes: shown here only so the arrows have something to point at
+class GameWorld
+class Player
+
+
+' ---- relationships ----
+GameWorld *-- "1" GameTimer
+GameWorld *-- "1" ScoreTracker
+GameWorld *-- "1" GameMap
+GameWorld --> "1" GameState : state
+
+HUD ..> GameWorld : reads
+InputHandler ..> Player : controls
+
+GameWorld --> Player : updates
+GameWorld --> HUD : displays
+
+
+@enduml

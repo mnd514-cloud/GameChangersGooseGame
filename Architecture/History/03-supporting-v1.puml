@@ -1,9 +1,11 @@
-@startuml 04-supporting
-title Goose Patrol - Supporting game systems
+@startuml
+title Goose Patrol - 3. Supporting game systems
+
 skinparam classAttributeIconSize 0
 skinparam shadowing false
 hide empty members
 
+' other classes
 class GameTimer {
   -remainingSeconds : float = 300
   +reset()
@@ -42,6 +44,8 @@ enum GameState {
   WON
   LOST
 }
+
+' main class
 class GameWorld {
   -state : GameState
   +start()
@@ -52,6 +56,7 @@ class GameWorld {
   +checkEndState()
 }
 
+' relationships
 GameWorld *-- "1" GameTimer
 GameWorld *-- "1" ProgressTracker
 GameWorld *-- "1" GameMap

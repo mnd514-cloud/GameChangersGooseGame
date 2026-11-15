@@ -1,9 +1,11 @@
-@startuml 03-hidden-events
-title Goose Patrol - Hidden events
+@startuml
+title Goose Patrol - 2. Hidden events
+
 skinparam classAttributeIconSize 0
 skinparam shadowing false
 hide empty members
 
+' main class
 abstract class HiddenEvent {
   #triggerZone : Rectangle
   #triggered : boolean
@@ -11,19 +13,26 @@ abstract class HiddenEvent {
   +tryTrigger(player : Player, world : GameWorld) : boolean
   #apply(world : GameWorld)
 }
+
+' other classes
 class SupplyCacheEvent {
   #apply(world : GameWorld)
 }
+
 class GooseRushEvent {
   #apply(world : GameWorld)
 }
+
 class Player
+
 class GameWorld {
   +spawnExtraGeese(count : int)
   +addPickup(item : Item, position : Vector2)
 }
+
 class Item
 
+' relationships
 HiddenEvent <|-- SupplyCacheEvent
 HiddenEvent <|-- GooseRushEvent
 HiddenEvent ..> Player : position check

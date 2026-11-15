@@ -1,5 +1,6 @@
-@startuml 05-sequence-start-pause
-title Goose Patrol - Start, frames and pause (A1)
+@startuml
+title Goose Patrol - 4. Start, frames and pause
+
 actor "Human player" as User
 participant GameScreen as Screen
 participant InputHandler as Input

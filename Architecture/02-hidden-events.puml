@@ -1,0 +1,78 @@
+@startuml
+
+title Goose Patrol - 2. Hidden Events
+
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+hide empty members
+
+left to right direction
+
+' main interface
+interface HiddenEvent {
+    + update(delta : float, ctx : GameContext) : void
+    + reset(ctx : GameContext) : void
+    + drawShapes(shapes : ShapeRenderer) : void
+    + drawSprites(batch : SpriteBatch) : void
+    + getStatusText() : String
+    + dispose() : void
+}
+
+' classes
+class GeeseEnrageEvent {
+    - triggered : boolean
+    - active : boolean
+    - timer : float
+    - DURATION : float = 10
+    - SPEED_MULTIPLIER : float = 1.75
+    + update(delta : float, ctx : GameContext) : void
+    + reset(ctx : GameContext) : void
+    + drawSprites(batch : SpriteBatch) : void
+    + getStatusText() : String
+    + dispose() : void
+}
+
+class Main {
+    - events : List<HiddenEvent>
+    - dogEventTriggered : boolean
+    - checkDogEvent() : void
+}
+
+class Dog {
+    - active : boolean
+    - timeLeft : float
+    + start(startX : float, startY : float) : void
+    + update(delta : float, ctx : GameContext) : void
+    + reset() : void
+    + draw(batch : SpriteBatch) : void
+    - catchGeese(geese : List<Goose>) : void
+}
+
+class GameContext {
+    + player : Player
+    + geese : List<Goose>
+    - gooseSpeedMultiplier : float
+    + setGooseSpeedMultiplier(multiplier : float) : void
+    + recordEvent() : void
+}
+
+class Player
+
+class Goose {
+    + disperse() : void
+}
+
+'relationships
+HiddenEvent <|.. GeeseEnrageEvent
+
+Main --> "0..*" HiddenEvent : updates / resets
+Main --> Dog : triggers collie event
+
+GeeseEnrageEvent ..> GameContext : player zone / speed effect
+Dog ..> GameContext : finds geese
+Dog ..> Goose : disperses
+
+GameContext --> Player : position
+GameContext --> "0..*" Goose : shared geese
+
+@enduml

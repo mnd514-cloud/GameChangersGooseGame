@@ -1,0 +1,103 @@
+@startuml
+
+title Goose Patrol - 3. Supporting Game Systems
+
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+hide empty members
+
+' classes
+class Main {
+    - state : GameState
+    - timeRemaining : float = 300
+    + render() : void
+    - togglePause() : void
+    - resetGame() : void
+}
+
+class GameContext {
+    + player : Player
+    + inventory : Inventory
+    + geese : List<Goose>
+    - itemsUsed : int
+    - eventsInteracted : int
+    + recordItemUsed() : void
+    + recordEvent() : void
+    + resetStats() : void
+}
+
+class GooseSpawner {
+    - spawnTimer : float
+    - nextCircleRadius : float
+    + update(delta : float, timeRemaining : float, ctx : GameContext, width : float, height : float) : void
+    - spawnGoose(ctx : GameContext, width : float, height : float) : void
+    + reset() : void
+}
+
+class BreadSystem {
+    - active : boolean
+    - flying : boolean
+    - timer : float
+    + startThrow(player : Player, width : float, height : float) : void
+    + updateFlight(delta : float) : void
+    + updateGeese(delta : float, ctx : GameContext, width : float, height : float) : void
+    + reset() : void
+}
+
+class CollisionManager {
+    - treeObstacles : List<Rectangle>
+    - shieldGraceTimer : float
+    + createTreeCollisions(...) : void
+    + canPlayerOccupy(x : float, y : float, playerRadius : float) : boolean
+    + movePlayer(...) : Vector2
+    + checkGooseCollisions(ctx : GameContext) : GooseCollisionResult
+    + updateShieldGraceTimer(delta : float) : void
+    + resetShieldGraceTimer() : void
+}
+
+class GameRenderer {
+    - ctx : GameContext
+    - events : List<HiddenEvent>
+    - dog : Dog
+    - breadSystem : BreadSystem
+    + render() : void
+    - drawBackground() : void
+    - drawEventShapes() : void
+    - drawEventSpritesAndPlayer() : void
+    - drawBreadShadow() : void
+    - drawBreadGeeseAndDog() : void
+}
+
+class HUD {
+    + drawStats(timeRemaining : float, itemsUsed : int, eventsInteracted : int, statusLines : List<String>) : void
+    + drawScreen(state : GameState, started : boolean) : void
+    + drawHotbar(inventory : Inventory) : void
+}
+
+enum GameState {
+ PAUSED
+ RUNNING
+ INSTRUCTIONS
+ WON
+ LOST
+}
+
+' relationships
+Main --> GameContext : shared data
+Main --> GooseSpawner : updates
+Main --> BreadSystem : updates
+Main --> CollisionManager : collision checks
+Main --> GameRenderer : renders
+Main --> HUD : draws UI
+Main --> GameState : manages
+
+GooseSpawner ..> GameContext : adds geese
+BreadSystem ..> GameContext : attracts geese
+CollisionManager ..> GameContext : checks player / shields
+GameRenderer ..> GameContext : draws entities
+GameRenderer ..> BreadSystem : draws bread
+
+HUD ..> GameState : overlay
+HUD ..> GameContext : statistics and inventory data
+
+@enduml

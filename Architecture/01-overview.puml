@@ -1,72 +1,99 @@
-@startuml 04-supporting
-title Goose Patrol - 4. Supporting classes (parts of GameWorld, plus presentation layer)
+@startuml
+title Goose Patrol - 1. Game World Overview
 
-' ---- display settings: leave as they are ----
 skinparam classAttributeIconSize 0
 skinparam shadowing false
 hide empty members
 
-' ---- classes ----
-class GameTimer {
-  - remaining : float
-  - running : boolean
-  + start()
-  + pause()
-  + resume()
-  + tick(delta)
-  + isExpired() : boolean
+' classes
+class Main {
+    - state: GameState
+    - timeRemaining : float
+    - started : boolean
+    - ctx : GameContext
+    + create() : void
+    + render() : void
+    - togglePause() : void
+    - resetGame() : void
 }
 
-class ScoreTracker {
-  - itemsUsed : int
-  - eventsTriggered : int
-  - geeseDispersed : int
-  + onItemUsed()
-  + onEventTriggered()
-  + calculateScore() : int
+class GameContext {
+    + player: Player
+    + inventory : Inventory
+    + geese : List<Goose>
+    - itemsUsed : int
+    - eventsInteracted : int
+    - gooseSpeedMultiplier : float
+    + recordItemUsed() : void
+    + recordEvent() : void
+    + resetStats() : void
+    + setWorldSize (width : float, height : float) : void
 }
 
-class GameMap {
-  - tiledMap : TiledMap
-  - bounds : Rectangle
-  - collisionLayer
-  + isWalkable(x, y) : boolean
-  + getSpawnPoint()
+class Player {
+    - x : float
+    - y : float
+    - moving : boolean
+    + update(delta : float, collisionManager : CollisionManager) : void
+    + draw(batch : SpriteBatch) : void
+    + reset(startX : float, startY : float) : void
+}
+
+class Inventory {
+    - selectedSlot : int
+    + handleItemUseInput() : String
+    + useSelectedItem() : String
+    + hasShield() : boolean
+    + consumeShield() : void
+}
+
+class Goose {
+    - state : GooseState
+    - movementType : MovementType
+    + update(delta : float, width : float, height : float) : void
+    + draw(batch : SpriteBatch) : void
+    + disperse() : void
+}
+
+class CollisionManager {
+    - treeObstacles : List<Rectangle>
+    + canPlayerOccupy(x : float, y : float, radius : float) : boolean
+    + movePlayer(...) : Vector2
+    + checkGooseCollisions(ctx : GameContext) : GooseCollisionResult
+}
+
+class GameRenderer {
+    - ctx : GameContext
+    + render() : void
 }
 
 class HUD {
-  + draw(world)
-}
-
-class InputHandler {
-  + poll(player)
-  + pausePressed() : boolean
+    + drawStats(timeRemaining : float, itemsUsed : int, eventsInteracted : int, statusLines : List<String>) : void
+    + drawScreen(state : GameState, started : boolean) : void
+    + drawHotbar(inventory : Inventory) : void
 }
 
 enum GameState {
   PAUSED
   RUNNING
+  INSTRUCTIONS
   WON
   LOST
 }
 
-' name-only boxes: shown here only so the arrows have something to point at
-class GameWorld
-class Player
+' relationships
+Main --> GameContext : coordinates
+Main --> CollisionManager : uses
+Main --> GameRenderer : renders through
+Main --> HUD : displays through
+Main --> GameState : tracks
 
+GameContext --> Player : holds
+GameContext --> Inventory : holds
+GameContext --> "0..*" Goose : tracks
 
-' ---- relationships ----
-GameWorld *-- "1" GameTimer
-GameWorld *-- "1" ScoreTracker
-GameWorld *-- "1" GameMap
-GameWorld --> "1" GameState : state
-
-HUD ..> GameWorld : reads
-InputHandler ..> Player : controls
-
-' ---- additional relationships ----
-GameWorld --> Player : updates
-GameWorld --> HUD : displays
-
+Player ..> CollisionManager : movement collision
+GameRenderer ..> GameContext : draws entities
+HUD ..> Inventory : hotbar
 
 @enduml

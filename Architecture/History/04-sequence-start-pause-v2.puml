@@ -1,0 +1,42 @@
+
+@startuml
+title Goose Patrol - 4. Start, frames and pause (V2)
+
+actor "Human player" as User
+
+participant Main
+participant Player
+participant CollisionManager as Collision
+participant GameTimer as Timer
+participant HUD
+
+note over Main,Timer
+  Initial state = PAUSED.
+end note
+
+User -> Main : press Start
+Main -> Main : state = RUNNING
+
+loop Each rendered frame
+  opt WASD pressed
+    Main -> Player : update(delta, collisionManager)
+    Player -> Collision : movePlayer(...)
+    Collision --> Player : resolved position
+  end
+
+  alt state == RUNNING
+    Main -> Timer : tick(delta)
+    Main -> Main : update geese, events, pickups
+    Main -> Main : checkEndState()
+  else state == PAUSED
+    note over Main,Timer : Gameplay and timer do not advance
+  end
+
+  Main -> HUD : drawStats(...)
+end
+
+User -> Main : press Esc
+Main -> Main : togglePause()
+note over Timer : Time stops while paused.
+
+@enduml

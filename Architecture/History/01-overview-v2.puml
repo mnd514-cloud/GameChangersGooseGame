@@ -1,0 +1,64 @@
+
+@startuml
+title Goose Patrol - 1. Overview (V2)
+
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+hide empty members
+
+' ---- classes ----
+class Main {
+  - state : GameState
+  - timeRemaining : float
+  + render()
+  + togglePause()
+}
+
+class GameContext {
+  + player : Player
+  + geese : List<Goose>
+  - itemsUsed : int
+  - eventsTriggered : int
+  + recordItemUsed()
+  + recordEvent()
+}
+
+class GameMap {
+  - bounds : Rectangle
+  - collisionLayer
+  + isWalkable(x, y) : boolean
+  + getSpawnPoint()
+}
+
+class HUD {
+  + draw(world)
+}
+
+class InputHandler {
+  + poll(player)
+  + pausePressed() : boolean
+}
+
+enum GameState {
+  PAUSED
+  RUNNING
+  WON
+  LOST
+}
+
+class Player
+class Goose
+
+' ---- relationships ----
+Main --> GameContext : manages
+Main --> GameMap : uses
+Main --> GameState : state
+Main --> HUD : displays
+
+GameContext --> Player : holds
+GameContext --> Goose : tracks
+
+HUD ..> GameContext : reads
+InputHandler ..> Player : controls
+
+@enduml

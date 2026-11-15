@@ -1,0 +1,88 @@
+@startuml
+
+title Goose Patrol - 5. Start, Movement and Pause
+
+actor "Human player" as User
+
+participant Main
+participant Player
+participant CollisionManager as Collision
+participant GooseSpawner as Spawner
+participant "Game systems" as Systems
+participant GameRenderer as Renderer
+participant HUD
+
+note over Main
+ Initial state = PAUSED
+ started = false
+ Timer starts at 300 seconds
+end note
+
+User -> Main : press SPACE
+Main -> Main : started = true; state = RUNNING
+
+loop Each rendered frame (Main.render)
+
+alt state == RUNNING
+
+  Main -> Main : timeRemaining -= realDelta
+
+  Main -> Collision : updateShieldGraceTimer(realDelta)
+
+  Main -> Player : update(delta, collisionManager)
+
+  opt WASD key held
+   Player -> Collision : movePlayer(...)
+   Collision --> Player : resolved position
+  end
+
+  Main -> Spawner : update(delta, timeRemaining, ctx, width, height)
+
+  Main -> Systems : update bread, hidden events, Dog
+
+  Main -> Collision : checkGooseCollisions(ctx)
+  Collision --> Main : NONE / SHIELD_BLOCKED / PLAYER_HIT
+
+  alt PLAYER_HIT
+   Main -> Main : state = LOST
+  else timeRemaining <= 0 and still RUNNING
+   Main -> Main : state = WON
+  end
+
+ else state == PAUSED or INSTRUCTIONS
+  note over Main
+   Gameplay and timer do not advance
+  end note
+ end
+
+ Main -> Renderer : render()
+ Main -> HUD : drawStats(...)
+ Main -> HUD : drawScreen(state, started)
+
+ opt started
+  Main -> HUD : drawHotbar(ctx.inventory)
+ end
+
+end
+
+User -> Main : press ESC (while RUNNING or PAUSED)
+Main -> Main : togglePause()
+
+note over Main
+ RUNNING <-> PAUSED
+end note
+
+opt PAUSED
+ User -> Main : press I
+ Main -> Main : state = INSTRUCTIONS
+
+ User -> Main : press I or ESC
+ Main -> Main : state = PAUSED
+end
+
+opt WON or LOST
+ User -> Main : press R
+ Main -> Main : resetGame(); state = RUNNING
+end
+
+@enduml
